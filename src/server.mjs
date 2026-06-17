@@ -8,6 +8,7 @@ import { cfg } from "./config.mjs";
 import { login, exp, imp, arr } from "./mfl.mjs";
 import { parseState } from "./state.mjs";
 import { buildBoard } from "./board.mjs";
+import { withAvailability } from "./candidates.mjs";
 
 const here = (p) => new URL(p, import.meta.url);
 const rankedBoard = JSON.parse(await readFile(here("../data/rookie_board_final.json")));
@@ -25,6 +26,13 @@ const app = Fastify({ logger: false });
 app.get("/api/board", async () => {
   const dr = await exp("draftResults");
   return { ...buildBoard(dr, rankedBoard, posOf, boardOpts(cfg.candidateCount)), dryRun: cfg.dryRun };
+});
+
+app.get("/api/rankings", async () => {
+  const dr = await exp("draftResults");
+  const state = parseState(dr, cfg.franchiseId);
+  const players = withAvailability(rankedBoard, state).sort((a, b) => a.rank - b.rank);
+  return { players, picksMade: state.picksMade, totalPicks: state.totalPicks };
 });
 
 app.post("/api/pick", async (req, reply) => {

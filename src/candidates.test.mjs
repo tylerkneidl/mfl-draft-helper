@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parseState } from "./state.mjs";
-import { buildCandidates } from "./candidates.mjs";
+import { buildCandidates, withAvailability } from "./candidates.mjs";
 
 const board = JSON.parse(
   await readFile(new URL("../data/rookie_board_final.json", import.meta.url)),
@@ -71,4 +71,17 @@ test("sorts by board rank even when the board is unordered", () => {
   ];
   const c = buildCandidates(b, stateOf(), { count: 3 });
   assert.deepEqual(c.map((p) => p.id), ["A", "B", "C"]);
+});
+
+test("withAvailability annotates the whole board incl. gone players", () => {
+  const b = [
+    { rank: 1, id: "A" },
+    { rank: 2, id: "B" },
+    { rank: 3, id: "C" },
+  ];
+  const all = withAvailability(b, stateOf("A", "A", "A", "B"));
+  assert.equal(all.length, 3); // nothing filtered
+  assert.equal(all.find((p) => p.id === "A").remaining, 0); // fully gone, still present
+  assert.equal(all.find((p) => p.id === "B").remaining, 2);
+  assert.equal(all.find((p) => p.id === "C").remaining, 3);
 });

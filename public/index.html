@@ -120,6 +120,36 @@
   .sheet .no { background: transparent; color: var(--mut); }
   .sheet .result { font-family: var(--mono); font-size: 13px; line-height: 1.5; color: var(--txt); }
   .skel { color: var(--dim); font-family: var(--mono); font-size: 12px; text-align: center; padding: 40px 0; }
+
+  /* bottom tab bar */
+  body { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+    display: flex; gap: 6px; padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, var(--bg) 28%);
+    max-width: 560px; margin: 0 auto; }
+  .tab { flex: 1; padding: 13px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--mut); font-family: var(--mono); font-weight: 700;
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+  .tab span { font-size: 14px; margin-right: 4px; }
+  .tab.active { color: var(--txt); border-color: var(--clock); background: var(--panel2);
+    box-shadow: 0 0 24px -12px var(--clock); }
+
+  /* full rankings rows */
+  .tier { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--dim); padding: 16px 4px 8px;
+    position: sticky; top: 56px; background: linear-gradient(var(--bg) 70%, transparent); z-index: 2; }
+  .rrow { display: flex; align-items: center; gap: 11px; padding: 10px 4px;
+    border-bottom: 1px solid var(--line); }
+  .rrow.gone { opacity: .34; }
+  .rrk { font-family: var(--mono); font-size: 11px; color: var(--dim); min-width: 32px; }
+  .rwho { flex: 1; min-width: 0; }
+  .rnm { font-family: var(--disp); font-weight: 700; font-size: 15px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rrow.gone .rnm { text-decoration: line-through; }
+  .rmeta { font-family: var(--mono); font-size: 10.5px; color: var(--mut); }
+  .rright { display: flex; align-items: center; gap: 9px; }
+  .gonetag { font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .1em;
+    color: var(--take); border: 1px solid rgba(255,93,46,.4); border-radius: 4px; padding: 2px 5px; }
 </style>
 
 <div id="app">
@@ -130,11 +160,22 @@
     <span class="prog" id="prog">—</span>
     <span class="dry" id="dry" hidden>DRY RUN</span>
   </header>
-  <div id="hero"></div>
-  <div class="listhead"><h2 id="listtitle">Board</h2><span class="hint" id="hint"></span></div>
-  <div id="list"><div class="skel">acquiring draft feed…</div></div>
-  <div class="foot" id="foot"></div>
+  <main id="view-draft">
+    <div id="hero"></div>
+    <div class="listhead"><h2 id="listtitle">Board</h2><span class="hint" id="hint"></span></div>
+    <div id="list"><div class="skel">acquiring draft feed…</div></div>
+    <div class="foot" id="foot"></div>
+  </main>
+  <main id="view-board" hidden>
+    <div class="listhead"><h2 id="rtitle">Full Board</h2><span class="hint" id="rhint"></span></div>
+    <div id="rankings"><div class="skel">loading board…</div></div>
+  </main>
 </div>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="draft"><span>◬</span> Draft</button>
+  <button class="tab" data-tab="board"><span>≣</span> Board</button>
+</nav>
 
 <div class="sheet" id="sheet">
   <div class="panel" id="sheetPanel"></div>
@@ -248,6 +289,41 @@ async function submitPick(c) {
   }
 }
 
+// --- full board tab ---
+function renderRankings(b) {
+  const avail = b.players.filter((p) => p.remaining >= 1).length;
+  $("#rhint").textContent = `${avail} / ${b.players.length} available`;
+  let html = "", tier = null;
+  for (const p of b.players) {
+    if (p.tier !== tier) { tier = p.tier; html += `<div class="tier">Tier ${tier}</div>`; }
+    const gone = p.remaining < 1;
+    const dots = [0, 1, 2].map((d) => `<span class="dot ${d < p.remaining ? "on" : ""}"></span>`).join("");
+    html += `<div class="rrow ${gone ? "gone" : ""}">
+      <span class="rrk">#${p.rank}</span>
+      <div class="rwho"><div class="rnm">${p.name}</div><div class="rmeta">${p.pos} · ${p.nfl}</div></div>
+      <div class="rright">${gone ? `<span class="gonetag">GONE</span>` : `<div class="copies">${dots}</div>`}</div>
+    </div>`;
+  }
+  $("#rankings").innerHTML = html;
+}
+async function loadRankings() {
+  try { renderRankings(await (await fetch("/api/rankings")).json()); }
+  catch { $("#rankings").innerHTML = `<div class="skel">board unavailable</div>`; }
+}
+
+// --- tabs ---
+let tab = "draft";
+document.querySelectorAll(".tab").forEach((btn) => {
+  btn.onclick = () => {
+    tab = btn.dataset.tab;
+    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === btn));
+    $("#view-draft").hidden = tab !== "draft";
+    $("#view-board").hidden = tab !== "board";
+    if (tab === "board") loadRankings();
+    window.scrollTo(0, 0);
+  };
+});
+
 load();
-setInterval(load, 15000);
+setInterval(() => (tab === "draft" ? load() : loadRankings()), 15000);
 </script>
