@@ -5,7 +5,8 @@
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
-    "inspect": "node src/inspect.mjs",
-    "start": "node src/index.mjs"
+    "inspect": "node --env-file-if-exists=.env src/inspect.mjs",
+    "start": "node --env-file-if-exists=.env src/index.mjs",
+    "test": "node --test"
   }
 }

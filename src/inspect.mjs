@@ -51,10 +51,14 @@ try {
   dim(`• draftResults unavailable yet (${e.message})`);
 }
 
-// 3) Sanity-check public ADP fetch works
+// 3) Sanity-check public ADP fetch works.
+// FCOUNT is MFL's *league-size cohort* for ADP, not our franchise count — valid
+// values are *,8,10,12,14,16. This is a 68-team draft (no matching bucket), so we
+// ask for the aggregate ("*") and filter to rookies, since this is a rookie draft.
+// Host routing to api.myfantasyleague.com is handled by exp()'s SITE_WIDE set.
 try {
-  const adp = await exp("adp", { FCOUNT: String(arr(league.franchises?.franchise).length || 12) });
-  ok(`ADP feed OK (${arr(adp.adp?.player).length} players)`);
+  const adp = await exp("adp", { FCOUNT: "*", IS_ROOKIE: "1" });
+  ok(`ADP feed OK (${arr(adp.adp?.player).length} rookies)`);
 } catch (e) {
   dim(`• ADP fetch failed (${e.message})`);
 }

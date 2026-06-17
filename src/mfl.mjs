@@ -1,7 +1,16 @@
 // mfl.mjs — thin MFL API client. Server-side only (MFL blocks browser/CORS calls).
-import { cfg, base } from "./config.mjs";
+import { cfg, base, apiBase } from "./config.mjs";
 
 let cookie = null;
+
+// Site-wide export TYPEs that must hit api.myfantasyleague.com, not the league
+// host. League-aware TYPEs (league, rosters, draftResults, freeAgents, rules,
+// pendingTrades) stay on the league host. Confirmed live: `adp` returns
+// "must go to api.myfantasyleague.com" if sent to the league host.
+const SITE_WIDE = new Set([
+  "players", "adp", "aav", "nflSchedule", "nflByeWeeks", "injuries",
+  "playerProfile", "topAdds", "topDrops", "topOwns", "topStarters",
+]);
 
 // Auth -> sets module-level cookie. Returns it, or null if no creds (public mode).
 export async function login() {
@@ -19,8 +28,11 @@ export async function login() {
 
 // export = reads. Always returns parsed JSON.
 export async function exp(type, args = {}) {
-  const p = new URLSearchParams({ TYPE: type, L: cfg.leagueId, JSON: "1", ...args });
-  const res = await fetch(`${base()}/export?${p}`, {
+  const siteWide = SITE_WIDE.has(type);
+  const host = siteWide ? apiBase() : base();
+  // Site-wide exports aren't league-scoped, so don't send L (harmless but tidy).
+  const p = new URLSearchParams({ TYPE: type, JSON: "1", ...(siteWide ? {} : { L: cfg.leagueId }), ...args });
+  const res = await fetch(`${host}/export?${p}`, {
     headers: cookie ? { Cookie: `MFL_USER_ID=${cookie}` } : {},
   });
   if (!res.ok) throw new Error(`export ${type} -> HTTP ${res.status}`);

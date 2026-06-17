@@ -29,4 +29,8 @@ export const cfg = {
   pollMs: 12 * 1000,
 };
 
+// League-specific exports/imports go to the league's host (e.g. www45...).
 export const base = () => `https://${cfg.host}/${cfg.year}`;
+// Site-wide exports (player dictionary, ADP/AAV, NFL schedule, injuries) MUST go
+// to the central api host or MFL returns "must go to api.myfantasyleague.com".
+export const apiBase = () => `https://api.myfantasyleague.com/${cfg.year}`;
