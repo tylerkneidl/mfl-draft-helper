@@ -50,17 +50,20 @@
     margin-top: 12px; color: var(--mut); display: flex; align-items: center; gap: 6px; }
   .hero .autopick b { font-family: var(--slab); font-variant-numeric: tabular-nums; color: var(--txt); }
   .hero .autopick.off { opacity: .7; }
-  /* clock terrorist — slow-poke callout in the hero's open space */
-  .hero .terrorist { position: absolute; top: 14px; right: 13px; z-index: 3; text-align: center;
-    transform: rotate(-7deg); animation: rise .5s both; }
-  .hero .ctsvg { width: 50px; height: 50px; display: block; margin: 0 auto;
-    filter: drop-shadow(0 0 11px rgba(255,45,149,.55)); }
-  .hero .terrorist .lbl { font-family: var(--disp); font-weight: 800; font-size: 8.5px; line-height: 1.05;
-    letter-spacing: .08em; color: var(--take); margin-top: 4px; border: 1px solid var(--take);
-    border-radius: 4px; padding: 2px 4px; background: rgba(255,45,149,.1); }
+  /* clock terrorist — masked-clock mascot for slow-pokes */
+  .ctsvg { display: block; }
+  .hero .terrorist { position: absolute; right: 8px; top: 52%; z-index: 3; text-align: center;
+    transform: translateY(-50%) rotate(-6deg); animation: rise .5s both; }
+  .hero .ctsvg { width: 88px; height: 88px; margin: 0 auto;
+    filter: drop-shadow(0 0 9px rgba(255,45,149,.5)) drop-shadow(0 0 15px rgba(25,220,203,.28)); }
+  .hero .terrorist .lbl { font-family: var(--disp); font-weight: 800; font-size: 9px; line-height: 1.05;
+    letter-spacing: .07em; color: var(--take); margin-top: 1px; border: 1px solid var(--take);
+    border-radius: 4px; padding: 2px 5px; background: rgba(255,45,149,.12); display: inline-block; }
   .hrow.terror { border-left: 2px solid var(--take); padding-left: 8px; margin: 0 -6px; border-radius: 6px; }
   .hdur { font-family: var(--slab); font-weight: 700; font-variant-numeric: tabular-nums; }
   .hrow.terror .hdur { color: var(--take); }
+  .hright { display: flex; align-items: center; gap: 12px; }
+  .hct .ctsvg { width: 30px; height: 30px; filter: drop-shadow(0 0 5px rgba(255,45,149,.45)); }
 
   /* hero — the one maximalist moment */
   .hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--dusk2);
@@ -256,19 +259,37 @@ const $ = (s) => document.querySelector(s);
 let latest = null;
 const SLOW_SECS = 10800; // 3h = clock terrorist
 
-// hand-drawn bandit-clock: a clock face in a ski mask with a lit fuse
-const CT_SVG = `<svg viewBox="0 0 48 48" class="ctsvg" aria-label="clock terrorist">
-  <path d="M24 9 Q29 4 32 8" fill="none" stroke="#735fa6" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="32.5" cy="7" r="3" fill="#ffab33"/><circle cx="32.5" cy="7" r="1.3" fill="#ff2d95"/>
-  <circle cx="24" cy="29" r="15" fill="#f6eeff" stroke="#ff2d95" stroke-width="2"/>
-  <line x1="24" y1="29" x2="24" y2="20" stroke="#181030" stroke-width="2" stroke-linecap="round"/>
-  <line x1="24" y1="29" x2="30" y2="31" stroke="#181030" stroke-width="2" stroke-linecap="round"/>
-  <path d="M10 27 A15 15 0 0 1 38 27 L38 31 Q24 37 10 31 Z" fill="#15101f"/>
-  <ellipse cx="18" cy="27.5" rx="3.1" ry="2.3" fill="#f6eeff"/>
-  <ellipse cx="30" cy="27.5" rx="3.1" ry="2.3" fill="#f6eeff"/>
-  <circle cx="18.7" cy="27.8" r="1.1" fill="#ff2d95"/><circle cx="30.7" cy="27.8" r="1.1" fill="#ff2d95"/>
-  <path d="M14.5 24 L21 26" stroke="#f6eeff" stroke-width="1.6" stroke-linecap="round"/>
-  <path d="M33.5 24 L27 26" stroke="#f6eeff" stroke-width="1.6" stroke-linecap="round"/>
+// cartoon bandit-clock gripping an hourglass — angry masked clock mascot
+const CT_SVG = `<svg viewBox="0 0 100 100" class="ctsvg" aria-label="clock terrorist">
+ <g stroke-linejoin="round" stroke-linecap="round">
+  <circle cx="45" cy="47" r="39" fill="#120d1f" stroke="#060410" stroke-width="2.5"/>
+  <circle cx="45" cy="47" r="38" fill="none" stroke="#3a2d63" stroke-width="1.4" opacity=".6"/>
+  <circle cx="45" cy="47" r="31" fill="#f3ead2"/>
+  <g fill="#241c3d" font-family="Zilla Slab, Georgia, serif" font-weight="700" font-size="11.5" text-anchor="middle" stroke="none">
+   <text x="45" y="25">12</text><text x="69" y="51">3</text><text x="45" y="77">6</text><text x="22" y="51">9</text>
+  </g>
+  <g fill="#241c3d"><circle cx="45" cy="20" r="1"/><circle cx="70" cy="47" r="1"/><circle cx="45" cy="74" r="1"/><circle cx="20" cy="47" r="1"/></g>
+  <path d="M15 41 Q45 32 75 41 Q71 55 45 58 Q19 55 15 41 Z" fill="#0d0a17"/>
+  <path d="M23 38 L41 45" stroke="#0d0a17" stroke-width="5" fill="none"/>
+  <path d="M67 38 L49 45" stroke="#0d0a17" stroke-width="5" fill="none"/>
+  <path d="M27 47 Q34.5 41.5 42 47.5 Q34.5 51 27 47 Z" fill="#fbfaff"/>
+  <path d="M63 47 Q55.5 41.5 48 47.5 Q55.5 51 63 47 Z" fill="#fbfaff"/>
+  <circle cx="36.5" cy="47" r="2.4" fill="#0d0a17"/>
+  <circle cx="53.5" cy="47" r="2.4" fill="#0d0a17"/>
+  <line x1="45" y1="47" x2="45" y2="30" stroke="#241c3d" stroke-width="3"/>
+  <line x1="45" y1="47" x2="57" y2="51" stroke="#241c3d" stroke-width="3"/>
+  <circle cx="45" cy="47" r="2.7" fill="#241c3d"/>
+  <path d="M68 61 Q79 65 81 75" stroke="#120d1f" stroke-width="6.5" fill="none"/>
+  <circle cx="70" cy="73" r="5" fill="#120d1f"/>
+  <g transform="translate(80 80)">
+   <rect x="-11" y="-14" width="22" height="3.2" rx="1.5" fill="#0d0a17"/>
+   <rect x="-11" y="10.8" width="22" height="3.2" rx="1.5" fill="#0d0a17"/>
+   <path d="M-8.5 -10.8 L8.5 -10.8 L0 0 Z" fill="#241c3d"/>
+   <path d="M-8.5 10.8 L8.5 10.8 L0 0 Z" fill="#241c3d"/>
+   <path d="M-6.4 -9 L6.4 -9 L0 -0.6 Z" fill="#ffab33"/>
+   <path d="M-5 9 L5 9 L0 1 Z" fill="#19dccb"/>
+  </g>
+ </g>
 </svg>`;
 const terroristBadge = () => `<div class="terrorist">${CT_SVG}<div class="lbl">CLOCK<br>TERRORIST</div></div>`;
 const fmtShort = (s) => { if (s == null) return ""; const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; };
@@ -428,10 +449,10 @@ function renderHistory(b) {
     <div class="hrow ${p.mine ? "mine" : ""} ${p.slow ? "terror" : ""}">
       <span class="hpk">${+p.round}.${String(p.pick).padStart(2, "0")}</span>
       <div class="hwho">
-        <div class="hplayer">${p.name}${p.slow ? " 💣⏰" : ""}</div>
+        <div class="hplayer">${p.name}</div>
         <div class="hteam">${p.team}${p.secs != null ? ` · <span class="hdur">${fmtShort(p.secs)}</span>` : ""}${p.slow ? " · CLOCK TERRORIST" : ""}</div>
       </div>
-      <span class="hpos">${p.pos}</span>
+      <div class="hright">${p.slow ? `<span class="hct" title="clock terrorist">${CT_SVG}</span>` : ""}<span class="hpos">${p.pos}</span></div>
     </div>`).join("");
 }
 async function loadHistory() {
