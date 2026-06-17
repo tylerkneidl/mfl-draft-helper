@@ -2,7 +2,7 @@
 // payload the web app (or any delivery layer) can render. No network, no I/O.
 import { parseState } from "./state.mjs";
 import { buildCandidates } from "./candidates.mjs";
-import { evaluate, gapAfter, picksUntilMine } from "./decision.mjs";
+import { evaluate, gapAfter, picksUntilMine, tradeSignal } from "./decision.mjs";
 
 // draftResults + ranked board + posOf(Map id->pos) -> renderable board payload.
 // Survival horizon is context-aware:
@@ -18,8 +18,11 @@ export function buildBoard(draftResults, rankedBoard, posOf, opts = {}) {
 
   const candidates = buildCandidates(rankedBoard, state, { count, copies });
   const evaluated = evaluate(candidates, state, posOf, { prior, window, copies, gap });
+  // Trade hints only make sense while planning (waiting), not mid-pick.
+  const trade = onClock ? null : tradeSignal(evaluated);
   return {
     mode: onClock ? "onclock" : "peek",
+    trade,
     onTheClock: state.onTheClock,
     picksMade: state.picksMade,
     totalPicks: state.totalPicks,

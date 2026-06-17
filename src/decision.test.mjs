@@ -10,6 +10,7 @@ import {
   estimatePPick,
   takeOrWait,
   evaluate,
+  tradeSignal,
 } from "./decision.mjs";
 
 const draftResults = JSON.parse(
@@ -114,6 +115,42 @@ test("evaluate annotates candidates with pSurvive and a take/wait call", () => {
   assert.ok(["take", "wait", "lean"].includes(r.call));
   // last copy, high positional demand, 20-pick gap -> almost surely gone -> "take"
   assert.equal(r.call, "take");
+});
+
+// --- tradeSignal: rare, cliff-gated trade suggestions ---
+
+test("tradeSignal flags trade-UP: elite slipping with a tier cliff behind", () => {
+  const cands = [
+    { rank: 1, tier: 1, name: "Elite, Guy", pSurvive: 0.15 }, // won't reach me
+    { rank: 2, tier: 3, name: "Mid, A", pSurvive: 0.9 },      // best survivor, 2 tiers worse
+    { rank: 3, tier: 3, name: "Mid, B", pSurvive: 0.95 },
+  ];
+  const s = tradeSignal(cands);
+  assert.equal(s.type, "up");
+  assert.equal(s.player.name, "Elite, Guy");
+});
+
+test("tradeSignal stays SILENT when a comparable player will reach me", () => {
+  const cands = [
+    { rank: 1, tier: 1, pSurvive: 0.15 }, // one elite slipping...
+    { rank: 2, tier: 1, pSurvive: 0.9 },  // ...but another elite survives -> no cliff
+    { rank: 3, tier: 2, pSurvive: 0.95 },
+  ];
+  assert.equal(tradeSignal(cands), null);
+});
+
+test("tradeSignal flags trade-DOWN: flat low-tier survivors, nothing elite slipping", () => {
+  const cands = [1, 2, 3, 4].map((r) => ({ rank: r, tier: 4, pSurvive: 0.9 }));
+  const s = tradeSignal(cands);
+  assert.equal(s.type, "down");
+});
+
+test("tradeSignal stays SILENT in the common case (good player will reach me)", () => {
+  const cands = [
+    { rank: 1, tier: 1, pSurvive: 0.92 },
+    { rank: 2, tier: 1, pSurvive: 0.95 },
+  ];
+  assert.equal(tradeSignal(cands), null);
 });
 
 test("evaluate honors an explicit gap override (peek horizon)", () => {

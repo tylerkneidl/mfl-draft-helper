@@ -58,6 +58,19 @@
   .hero .sub { font-family: var(--mono); font-size: 13px; color: var(--mut); margin-top: 9px; }
   .hero .sub b { color: var(--txt); }
 
+  /* rare trade hint banner */
+  .trade { border-radius: 12px; padding: 13px 15px; margin: 0 0 14px;
+    display: flex; gap: 11px; align-items: center; animation: rise .5s forwards;
+    font-size: 13.5px; line-height: 1.35; }
+  .trade .ic { font-size: 18px; line-height: 1; }
+  .trade b { font-family: var(--disp); font-weight: 700; }
+  .trade.up { border: 1px solid rgba(255,93,46,.45); background: rgba(255,93,46,.1); color: #ffd9cb; }
+  .trade.up .ic { color: var(--take); }
+  .trade.down { border: 1px solid rgba(52,210,123,.4); background: rgba(52,210,123,.08); color: #c9f2dc; }
+  .trade.down .ic { color: var(--wait); }
+  .trade .k { font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; opacity: .7; display: block; margin-bottom: 2px; }
+
   .listhead { display: flex; align-items: baseline; gap: 8px; padding: 4px 4px 10px; }
   .listhead h2 { font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
     text-transform: uppercase; color: var(--mut); font-weight: 700; }
@@ -162,6 +175,7 @@
   </header>
   <main id="view-draft">
     <div id="hero"></div>
+    <div id="trade"></div>
     <div class="listhead"><h2 id="listtitle">Board</h2><span class="hint" id="hint"></span></div>
     <div id="list"><div class="skel">acquiring draft feed…</div></div>
     <div class="foot" id="foot"></div>
@@ -212,6 +226,7 @@ function render(b) {
             ? `your pick: <b>R${+b.myNextPick.round} P${+b.myNextPick.pick}</b> · in <b>${b.gap}</b> picks`
             : "no upcoming picks"}</div></div>`;
 
+  $("#trade").innerHTML = tradeBanner(b.trade);
   $("#listtitle").textContent = me ? "Who do you want?"
     : `Likely at your pick${b.myNextPick ? ` (R${+b.myNextPick.round} P${+b.myNextPick.pick})` : ""}`;
   $("#hint").textContent = me ? "tap to draft" : "peek ahead";
@@ -221,6 +236,16 @@ function render(b) {
     if (el) el.onclick = () => confirmPick(c);
   });
   $("#foot").textContent = `updated ${new Date().toLocaleTimeString()} · auto-refresh 15s`;
+}
+
+function tradeBanner(t) {
+  if (!t) return "";
+  if (t.type === "up") return `<div class="trade up"><span class="ic">⬆</span><div>
+    <span class="k">Consider trading up</span>
+    <b>${t.player.name}</b> likely won't reach you — and it's a tier cliff after him.</div></div>`;
+  return `<div class="trade down"><span class="ic">⬇</span><div>
+    <span class="k">Consider trading down</span>
+    Your targets should keep (flat value) — bank picks instead of using this slot.</div></div>`;
 }
 
 function card(c, i, mode) {

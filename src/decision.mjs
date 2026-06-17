@@ -72,6 +72,31 @@ export function takeOrWait(pSurvive, { waitAbove = 0.75, takeBelow = 0.4 } = {})
   return "lean";
 }
 
+// Rare, cliff-gated trade suggestion from an evaluated, rank-sorted candidate list
+// (DRAFT-DECISION-LOGIC.md §3). Returns null in the common case.
+//   up   = an elite (tier<=eliteTier) you like won't survive AND the best player who
+//          will survive is >= cliffTiers worse (real value cliff, no comparable behind).
+//   down = nothing elite is slipping AND your survivors are a flat low-tier stretch
+//          (interchangeable depth) -> accumulate picks instead.
+export function tradeSignal(candidates, opts = {}) {
+  const { surviveCut = 0.5, eliteTier = 2, cliffTiers = 2, flatTier = 3, flatCount = 4 } = opts;
+  const survivors = candidates.filter((c) => c.pSurvive >= surviveCut);
+  const slipping = candidates.filter((c) => c.pSurvive < surviveCut);
+  const eliteSlipping = slipping.find((c) => (c.tier ?? 99) <= eliteTier);
+  const bestSurvivor = survivors[0]; // rank-sorted -> [0] is the best that reaches me
+
+  if (eliteSlipping && bestSurvivor && bestSurvivor.tier - eliteSlipping.tier >= cliffTiers) {
+    return { type: "up", player: eliteSlipping, dropToTier: bestSurvivor.tier };
+  }
+  if (!eliteSlipping && survivors.length >= flatCount) {
+    const t = survivors[0].tier ?? 99;
+    if (t >= flatTier && survivors.slice(0, flatCount).every((c) => (c.tier ?? 99) === t)) {
+      return { type: "down", tier: t };
+    }
+  }
+  return null;
+}
+
 // Annotate each candidate with gap, p_pick, pSurvive and a take/wait/lean call.
 export function evaluate(candidates, state, posOf, opts = {}) {
   const { window, copies = 3, thresholds, gap: gapOpt, ...ppickOpts } = opts;
