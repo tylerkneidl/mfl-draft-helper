@@ -39,10 +39,13 @@
     font-variant-numeric: tabular-nums; }
   .dry { font-family: var(--disp); font-size: 10px; font-weight: 800; letter-spacing: .12em;
     padding: 3px 7px; border: 1px solid var(--lean); color: var(--lean); border-radius: 4px; }
-  .clock { font-family: var(--slab); font-weight: 700; font-size: 12.5px; color: var(--mut);
-    font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-  .clock.warn { color: var(--lean); }
-  .clock.crit { color: var(--take); animation: blink 1s steps(2) infinite; }
+  .bigclock { position: relative; font-family: var(--slab); font-weight: 700;
+    font-variant-numeric: tabular-nums; font-size: 27px; line-height: 1; color: var(--txt);
+    margin-top: 13px; letter-spacing: .01em; }
+  .bigclock .u { font-family: var(--disp); font-weight: 700; font-size: 12px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--mut); margin-left: 7px; }
+  .bigclock.warn { color: var(--lean); }
+  .bigclock.crit { color: var(--take); animation: blink 1s steps(2) infinite; }
 
   /* hero — the one maximalist moment */
   .hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--dusk2);
@@ -204,7 +207,6 @@
     <span class="brand" id="brand">METROSTARS</span>
     <span class="spacer"></span>
     <span class="prog" id="prog">—</span>
-    <span class="clock" id="clock" hidden></span>
     <span class="dry" id="dry" hidden>DRY RUN</span>
   </header>
   <main id="view-draft">
@@ -255,13 +257,16 @@ function render(b) {
   const clock = b.onTheClock;
   const me = clock && clock.isMe;
 
+  const clockEl = b.clock ? `<div class="bigclock" id="clock"></div>` : "";
   $("#hero").innerHTML = me
     ? `<div class="hero me"><div class="eyebrow">● On the clock</div>
          <h1>Round ${+clock.round}, Pick ${+clock.pick}</h1>
+         ${clockEl}
          <div class="sub">tap a player below to draft them${b.dryRun ? " · <b>dry run</b>" : ""}</div>
          <div class="sunset"></div></div>`
     : `<div class="hero"><div class="eyebrow">On the clock</div>
          <h1>${clock ? (clock.franchiseName || `Franchise ${clock.franchise}`) : "Draft complete"}</h1>
+         ${clockEl}
          <div class="sub">${b.myNextPick
             ? `your pick: <b>R${+b.myNextPick.round} P${+b.myNextPick.pick}</b> · in <b>${b.gap}</b> picks`
             : "no upcoming picks"}</div>
@@ -417,14 +422,15 @@ function fmtDur(sec) {
   return h > 0 ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
 }
 function tickClock() {
-  const el = $("#clock");
-  const dl = latest?.clock?.deadline;
-  if (!dl) { el.hidden = true; return; }
-  const rem = dl - Math.floor(Date.now() / 1000);
-  el.hidden = false;
+  const el = $("#clock"); // lives in the hero; absent when there's no clock
+  if (!el || !latest?.clock?.deadline) return;
+  const rem = latest.clock.deadline - Math.floor(Date.now() / 1000);
   el.classList.toggle("warn", rem <= 3600 && rem > 900);
   el.classList.toggle("crit", rem > 0 && rem <= 900);
-  el.textContent = rem > 0 ? `⏱ ${fmtDur(rem)}` : "⏱ time up";
+  const me = latest?.onTheClock?.isMe;
+  el.innerHTML = rem > 0
+    ? `⏱ ${fmtDur(rem)}<span class="u">${me ? "to pick" : "left"}</span>`
+    : `⏱<span class="u">time expired</span>`;
 }
 setInterval(tickClock, 1000);
 
