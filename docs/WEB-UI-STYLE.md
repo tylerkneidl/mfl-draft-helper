@@ -1,103 +1,129 @@
 # Web UI — Style Decisions (handoff for styling iteration)
 
-The entire UI is **one file**: [`public/index.html`](../public/index.html) — inline
-`<style>` + vanilla JS, no framework, no build step. All theming is driven by CSS
-custom properties in `:root`, so a full re-skin is mostly swapping those vars.
-**Function is settled; this doc is purely about the look.** Iterate freely on
-aesthetics — just keep the DOM hooks the JS relies on (see "Don't break" below).
-
----
+The entire UI is one file: `public/index.html` — inline `<style>` + vanilla JS, no
+framework, no build step. All theming is driven by CSS custom properties in
+`:root`, so a re-skin is mostly swapping those vars plus some structural CSS.
+Function is settled; this doc is about the look.
 
 ## Aesthetic direction chosen
 
-**Dark "tactical draft war room."** Near-black canvas, faint engineering grid,
-one hot accent for urgency, semantic status colors. Picked for a phone tool used
-under a clock: high contrast, glanceable, data-forward. It's intentional, but see
-"The Claude tells" — it's also a very *on-brand-for-the-model* choice, so if you
-want a different personality (editorial, light/refined, retro-sports, brutalist
-ticket-stub, etc.), that's wide open.
+**"Vice Stub"** — Miami Vice neon on a retro ticket-stub skeleton. A draft war
+room for a phone, used under a clock. The structure is a vintage sports ticket
+stub (perforated rank stub, box-score numerals, stamped status) kept quiet and
+glanceable; the personality is 1980s Miami at dusk — flamingo magenta, sunset
+amber, Art-Deco cyan glowing against a deep plum night. Boldness is spent in
+exactly one place: the hero scoreboard, which ignites with a neon sunset glow
+when you're on the clock. Everything you actually read (the candidate list) stays
+calm pastel-on-dusk so it scans fast.
+
+This is a deliberate move off the previous dark-tactical look, which carried the
+common model-default fingerprint (near-black + single orange accent, monospace
+for all data, engineering-grid + vignette texture, translucent traffic-light
+chips, staggered fade-up). See "How this diverges" below.
 
 ## Design tokens (`:root`) — the re-skin surface
 
 ```
---bg:    #0a0b0d   near-black canvas
---panel: #14161a   card/hero surface
---panel2:#181b21   inset (buttons)
---line:  #262a32   borders + grid lines
---txt:   #eceef1   primary text
---mut:   #868b95   secondary text
---dim:   #5a5f69   tertiary / disabled
---take:  #ff5d2e   urgent (orange-red)   ← also --clock (on-the-clock accent)
---lean:  #ffc23d   caution (amber)
---wait:  #34d27b   safe (green)
---mono:  "JetBrains Mono"   data, labels, numbers
---disp:  "Archivo"          names, headings, body
+--dusk:   #181030   deep plum night — canvas
+--dusk2:  #211741   card surface (ticket stock, at night)
+--stub:   #2a1d54   perforated stub column
+--line:   #3f2e6e   perforation + hairline borders
+--txt:    #f6eeff   primary text
+--mut:    #bda6e4   secondary text
+--dim:    #735fa6   tertiary / disabled
+--take:   #ff2d95   urgent — hot flamingo magenta   (chip + survival fill)
+--lean:   #ffab33   caution — sunset amber          (chip + survival fill)
+--wait:   #19dccb   safe — Art-Deco cyan            (chip + survival fill)
+--gold:   #ffd36e   rank numerals, copies dots
+--violet: #8268ff   secondary neon (gradients/accents)
+--disp: "Saira Condensed"   names, hero, buttons, labels (display)
+--slab: "Zilla Slab"        data: rank, %, pick numbers (box-score numerals)
+--body: "Hanken Grotesk"    why-footnote + running text
+--neon: "Monoton"           the hero eyebrow only (used once, on purpose)
 ```
 
-Swap these and most of the theme moves with them. The three semantic colors
-(`take`/`lean`/`wait`) are load-bearing — they color both the status chip and the
-survival bar, encoding the decision at a glance.
+Swap these and the theme moves with them. Load-bearing: the three semantic colors
+(`take` magenta / `lean` amber / `wait` cyan) drive both the status chip and the
+survival bar — they encode the draft decision at a glance, so keep a clear
+three-way distinction even if you retune the hues. Note the intentional inversion:
+`wait` is cyan, not green — it's safe and unmistakably Miami.
 
 ## Typography
 
-- **Two families, deliberate split:** `Archivo` (display — weights 500/700/900)
-  for player names and the hero; `JetBrains Mono` for anything data-ish (labels,
-  pick numbers, %s, pos·team, chips). The mono ↔ display contrast is the main
-  "character" of the type system.
-- **Mono labels are UPPERCASE + letter-spaced** (`.1–.16em`) — eyebrows, chips,
-  section headers. Display headings are tight (`letter-spacing: -.02em`), big,
-  heavy (900 hero, 700 names).
+- Three faces, one job each (replaces the old Archivo + JetBrains-Mono pair):
+  - `Saira Condensed` (600–800), athletic/jersey condensed — names, hero, buttons,
+    uppercase micro-labels. The condensed display is the type system's "voice."
+  - `Zilla Slab` (600–700) for numerals/data — rank, survival %, pick counter. A
+    slab with `font-variant-numeric: tabular-nums` gives box-score alignment
+    without the monospace-for-data tell.
+  - `Hanken Grotesk` for the `why` footnote and running prose — warm, readable.
+- Display headings: heavy, tight, occasional italic on the hero (the only italic).
+- Micro-labels ("RANK", section heads): uppercase, letter-spaced `.1–.16em`, in
+  Saira (not mono). Small and dim.
 
 ## Layout & structure
 
 - Phone-first, `max-width: 560px`, centered. `100dvh`, safe-area insets for notch.
-- **Sticky header** (brand · live dot · pick counter · DRY RUN badge) with a
-  fade-to-bg gradient.
-- **Hero panel** — the state banner. Two variants: default ("On the clock:
-  Franchise X / your pick in N") and `.hero.me` (orange glow, blinking eyebrow,
-  "You're on the clock"). This is the biggest single visual moment.
-- **Candidate cards** stacked vertically. Anatomy: rank chip · name · `pos · team`
-  · status chip (top row); copies-left dots · survival bar + % (stats row); `why`
-  (dashed-top footnote); full-width Draft button.
-- **Confirm bottom-sheet** — slides up from the bottom for the pick confirmation.
+- Sticky header — brand (METROSTARS, magenta→violet→cyan gradient text) · pulsing
+  cyan live dot · pick counter (`#prog`) · DRY RUN badge (`#dry`).
+- Hero (`#hero`) — the one maximalist moment. Plum panel with magenta/cyan light
+  bleeding from the top corners and a signature horizon stripe along the bottom
+  (magenta→amber→cyan gradient, the "sunset"). Default state is calm; `.hero.me`
+  ignites — magenta border, outer neon glow, the Monoton eyebrow blinks, the h1
+  goes italic.
+- Candidate cards (`#list`) — ticket stubs, kept quiet. Anatomy: a left perforated
+  stub (2px dashed divider + cut-out notches) holding the big gold rank numeral;
+  the body holds name (Saira) · `pos · team` (Saira micro) · stamped status chip
+  (top row); then a stats row — copies-left dots (gold bulbs) + survival meter &
+  %; the `why` footnote (Hanken) under a dashed rule; a full-width Draft button
+  (dim outline default; magenta + glow when `.actionable`).
+- Full Board tab (`#rankings`) — tier-grouped rows: gold slab rank · name · meta ·
+  copies bulbs; gone players dimmed, struck, tagged GONE.
+- Confirm bottom-sheet (`#sheet` / `#sheetPanel`) — slides up, magenta top border.
 
-## Background & texture
+## Texture & signature
 
-- Two layered linear-gradients form a **38px engineering grid**; a fixed radial
-  **vignette** (`body::before`) fades the grid out toward the edges so it reads as
-  texture, not a spreadsheet. This is the main "atmosphere" device.
+- No engineering grid, no vignette. Atmosphere comes from the hero's corner-bleed
+  neon light only — the list sits on flat dusk for readability.
+- Signature element: the sunset horizon stripe on the hero (magenta→amber→cyan
+  gradient line) — the Vice sunset and a visual key to the three semantic colors,
+  so the palette teaches itself. Reuse sparingly; don't scatter it.
+- Cards read as tickets via the perforated stub + notch cut-outs, not via added
+  decoration.
 
-## Motion (all CSS)
+## Motion (all CSS, minimal, `prefers-reduced-motion` aware)
 
 - Live dot: pulsing `ping` ring (2.4s).
-- Cards: staggered rise-in on load (`animation-delay: i*55ms`).
-- On-the-clock eyebrow: `blink` (steps(2), 1.4s).
-- Survival bar: animated `width` transition (.6s).
-- Bottom-sheet: slide-up (.25s); buttons: `:active` scale-down.
-- Hero (me): orange box-shadow glow.
+- `.hero.me`: neon box-shadow glow + blinking Monoton eyebrow (`blink`, 1.4s).
+- Cards: quick deal-in (short translateY + fade, ~.35s, tiny capped stagger) —
+  deliberately not a long staggered fade-up cascade.
+- Survival bar: animated `width` (.6s ease). Sheet: slide-up (.25s). Buttons:
+  `:active` scale-down (stamp press).
 
-## The "Claude tells" (so you can diverge intentionally)
+## How this diverges from the model-default look (on purpose)
 
-This design has a recognizable model-default fingerprint. If you want it to stop
-"looking like Claude," these are the things to change:
-1. **Dark near-black + a single hot accent** (here orange-on-near-black).
-2. **Monospace for anything technical** + uppercase letter-spaced micro-labels.
-3. **Faint grid / dotted texture** background with a vignette.
-4. **Semantic traffic-light chips** (red/amber/green) with translucent fills +
-   1px colored borders.
-5. **Staggered fade-up entrance** animation on load.
-6. **Rounded panels (12–14px) on a darker canvas, 1px hairline borders.**
-
-None are wrong — they're just the house style. A light/editorial sports-almanac
-look, a print-ticket aesthetic, or a bold maximalist team-colors treatment would
-all read as deliberately *not* that.
+1. Near-black + single orange → plum dusk + flamingo/amber/cyan triad.
+2. Monospace for all data → slab numerals (tabular-nums) + condensed display.
+3. Engineering grid + vignette → corner-bleed neon on the hero only, flat list.
+4. Translucent traffic-light chips w/ 1px borders → solid neon stamped chips.
+5. Staggered fade-up cascade → quick deal-in.
+6. 12–14px rounded panels w/ hairline borders → ticket-stub cards w/ perforation +
+   notches; the one rounded showpiece is the hero.
 
 ## Don't break (JS contracts)
 
-The script in the same file depends on these — keep them when restyling:
 - IDs: `#hero`, `#list`, `#prog`, `#dry`, `#hint`, `#foot`, `#sheet`,
   `#sheetPanel`; per-card button id `draft-<playerId>`.
 - Classes the JS toggles/reads: `.hero.me`, `.card.actionable`, `.sheet.open`,
-  chip class = the call (`take|lean|wait`).
-- `render(board)`, `card(c,i,me)`, `confirmPick`, `submitPick`, `load()` are the
-  render pipeline; restyling = change markup/CSS they emit, not the data flow.
+  status chip class = the call (`take` | `lean` | `wait`); survival `.fill` and
+  `.pct` use the same call class.
+- `render(board)`, `card(c,i,mode)`, `confirmPick`, `submitPick`, `load()` are the
+  render pipeline — restyling means changing the markup/CSS they emit, not the data
+  flow. Card markup maps: stub→rank, body→name/meta/chip/stats/why/button.
+
+## Optional next steps (not blocking)
+
+- A daytime Deco light variant (flamingo/mint/sand/chrome on light) — a second
+  token set, same DOM — if a light mode is ever wanted.
+- The survival meter could gain segmented "scoreboard bulb" ticks for more retro
+  character; current solid fill is the calm default.
