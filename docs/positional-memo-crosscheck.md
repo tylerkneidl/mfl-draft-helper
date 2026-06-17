@@ -1,11 +1,14 @@
 # Cross-check: league-mate's Positional Value memo vs. our ranking model
 
-Source: `docs/Positional_Value_and_Scarcity_Memo.pdf` — an independent study by a
-league member over **805 franchise-seasons (2019–2025)** of EFA/EDSL/MLS history
-(the **MLS = 68** subset is *our* league). It measures positional value from
-**actual all-play win-rate lift** of fielding a top-quartile room, plus trade
-prices and replaceability — a completely different method from our
-replacement-level VORP model (`RANKING-METHODOLOGY.md §1`). Two roads, same map.
+Source: `docs/Positional_Value_and_Scarcity_Memo.pdf` — a study by a league member
+over **805 franchise-seasons (2019–2025)** of **OUR league's own history**
+(EDSL → EFA → MLS are this league's prior names/formats, not other leagues). It
+measures positional value from **actual all-play win-rate lift** of fielding a
+top-quartile room, plus trade prices and replaceability — a completely different
+method from our replacement-level VORP model (`RANKING-METHODOLOGY.md §1`),
+applied to **the same league we're drafting for**. So this is not external
+validation: it's our own league's empirical truth, and where our board disagrees
+with it, the board is the thing to question.
 
 ## Headline: strong independent validation
 
@@ -46,13 +49,15 @@ This directly endorses our "fade rookie CB/S/DT, prioritize LB/RB/WR" stance.
    This is a ranking-layer change (re-weight `LEV['TE']` and re-rank), i.e. a job
    for the ranking agent, not the app.
 
-2. **QB — our most contestable call, now with a second opinion.** The memo is
-   *cooler* on QB (10.3 lift, "anchor one, don't overpay for depth") than our
-   `LEV['QB'] = 0.78`. We elevated QB on a **league-specific** scarcity structure
-   (the 3.04-QB roster norm → demand > supply, `RANKING-METHODOLOGY.md §1.3`),
-   which the cross-league memo wouldn't capture. So this isn't a contradiction so
-   much as a reminder: **Ty Simpson at #2 is the board's most aggressive bet** —
-   `RANKING-METHODOLOGY.md §5` already flagged it as the first knob to revisit.
+2. **QB — our most aggressive call, judged by our own history.** Our league's
+   history rates QB *room* lift only middling (10.3) and says **"secure one QB1
+   anchor; don't overpay for QB2/QB3 depth."** Our board elevated QB to
+   `LEV['QB'] = 0.78` on the 3.04-QB roster scarcity (`RANKING-METHODOLOGY.md §1.3`).
+   These aren't really in conflict: putting **one** QB (Ty Simpson) at #2 *is* the
+   "buy one anchor" play — the memo's warning is against QB *depth*, not against a
+   single early QB1. Still, the memo is our own league saying QB isn't a top
+   winning engine, so **Simpson at #2 is the board's most aggressive bet** and the
+   first knob to revisit (already flagged in `RANKING-METHODOLOGY.md §5`).
 
 3. **S (safety).** Memo rates S mid-pack (10.9), we fade it (0.33). No real
    conflict: the memo *also* shows S is the second-most replaceable position
