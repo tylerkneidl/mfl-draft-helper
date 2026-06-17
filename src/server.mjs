@@ -27,6 +27,12 @@ const league = (await exp("league")).league;
 const teamById = new Map(arr(league.franchises.franchise).map((f) => [f.id, f.name]));
 const teamName = (id) => teamById.get(id) ?? `Franchise ${id}`;
 const myTeam = teamName(cfg.franchiseId);
+// Pick clock length, e.g. draftLimitHours "6:00" -> 21600s. MFL doesn't broadcast
+// a deadline, so we derive it: deadline = last-pick timestamp + this limit.
+const clockSeconds = (() => {
+  const [h = 0, m = 0] = String(league.draftLimitHours || "").split(":").map(Number);
+  return h * 3600 + m * 60;
+})();
 
 const app = Fastify({ logger: false });
 
@@ -34,6 +40,10 @@ app.get("/api/board", async () => {
   const dr = await exp("draftResults");
   const b = buildBoard(dr, rankedBoard, posOf, boardOpts(cfg.candidateCount));
   if (b.onTheClock) b.onTheClock.franchiseName = teamName(b.onTheClock.franchise);
+  // Derived pick clock (epoch-seconds deadline); client ticks it down, no extra polls.
+  if (b.onTheClock && b.lastPickAt && clockSeconds) {
+    b.clock = { deadline: b.lastPickAt + clockSeconds, limitSeconds: clockSeconds };
+  }
   return { ...b, myTeam, dryRun: cfg.dryRun };
 });
 

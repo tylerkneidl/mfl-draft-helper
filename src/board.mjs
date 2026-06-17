@@ -20,9 +20,14 @@ export function buildBoard(draftResults, rankedBoard, posOf, opts = {}) {
   const evaluated = evaluate(candidates, state, posOf, { prior, window, copies, gap });
   // Trade hints only make sense while planning (waiting), not mid-pick.
   const trade = onClock ? null : tradeSignal(evaluated);
+  // The current pick's clock started when the previous pick was submitted, so the
+  // most recent made-pick timestamp anchors the deadline (server adds the limit).
+  const ts = state.picks.filter((p) => p.player && p.timestamp != null).map((p) => p.timestamp);
+  const lastPickAt = ts.length ? Math.max(...ts) : null;
   return {
     mode: onClock ? "onclock" : "peek",
     trade,
+    lastPickAt,
     onTheClock: state.onTheClock,
     picksMade: state.picksMade,
     totalPicks: state.totalPicks,

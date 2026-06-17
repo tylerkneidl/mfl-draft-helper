@@ -28,6 +28,7 @@ test("buildBoard composes state + candidates + decision into one payload", () =>
   assert.equal(r.picksUntilMyPick, 12);
   assert.equal(r.picksUntilNextPick, 20);
   assert.equal(r.gap, 12);
+  assert.equal(r.lastPickAt, 1781613630); // most recent made-pick timestamp -> clock anchor
   assert.equal(r.candidates.length, 5);
   assert.equal(r.candidates[0].id, "17556"); // Reese, top available
   assert.ok(r.candidates.every((c) => ["take", "wait", "lean"].includes(c.call)));

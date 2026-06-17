@@ -39,6 +39,10 @@
     font-variant-numeric: tabular-nums; }
   .dry { font-family: var(--disp); font-size: 10px; font-weight: 800; letter-spacing: .12em;
     padding: 3px 7px; border: 1px solid var(--lean); color: var(--lean); border-radius: 4px; }
+  .clock { font-family: var(--slab); font-weight: 700; font-size: 12.5px; color: var(--mut);
+    font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  .clock.warn { color: var(--lean); }
+  .clock.crit { color: var(--take); animation: blink 1s steps(2) infinite; }
 
   /* hero — the one maximalist moment */
   .hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--dusk2);
@@ -200,6 +204,7 @@
     <span class="brand" id="brand">METROSTARS</span>
     <span class="spacer"></span>
     <span class="prog" id="prog">—</span>
+    <span class="clock" id="clock" hidden></span>
     <span class="dry" id="dry" hidden>DRY RUN</span>
   </header>
   <main id="view-draft">
@@ -272,6 +277,7 @@ function render(b) {
     if (el) el.onclick = () => confirmPick(c);
   });
   $("#foot").textContent = `updated ${new Date().toLocaleTimeString()} · auto-refresh 15s`;
+  tickClock();
 }
 
 function tradeBanner(t) {
@@ -403,6 +409,24 @@ document.querySelectorAll(".tab").forEach((btn) => {
     window.scrollTo(0, 0);
   };
 });
+
+// live pick clock — derived deadline ticked down every second, no extra polling
+function fmtDur(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+  const p = (n) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
+}
+function tickClock() {
+  const el = $("#clock");
+  const dl = latest?.clock?.deadline;
+  if (!dl) { el.hidden = true; return; }
+  const rem = dl - Math.floor(Date.now() / 1000);
+  el.hidden = false;
+  el.classList.toggle("warn", rem <= 3600 && rem > 900);
+  el.classList.toggle("crit", rem > 0 && rem <= 900);
+  el.textContent = rem > 0 ? `⏱ ${fmtDur(rem)}` : "⏱ time up";
+}
+setInterval(tickClock, 1000);
 
 load();
 setInterval(refreshTab, 15000);
