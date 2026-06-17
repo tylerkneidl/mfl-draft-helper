@@ -19,19 +19,27 @@ that bend value away from consensus, and the entire model exists to encode them:
    which is what determines *replacement level* and therefore positional value.
 3. **Dynasty, 1-QB, full-PPR, TE-premium, rush-attempt points.**
 
-The ranking is a product of three independent inputs, each doing a distinct job:
+The ranking is a product of four independent inputs, each doing a distinct job:
 
 | Input | Job | Source of truth |
 |---|---|---|
-| **League data** (uploaded files) | Positional value structure (which positions to draft early) | `player-scores-2025.json`, `rosters-2025.json`, `rules.json`, `players.json`, `available_rookies.json` |
+| **League data** (uploaded files) | Positional value *structure* — replacement level / scarcity from one season | `player-scores-2025.json`, `rosters-2025.json`, `rules.json`, `players.json`, `available_rookies.json` |
+| **History memo** (805 franchise-seasons) | Positional value *priors* — what actually correlated with winning over many seasons | `Positional_Value_and_Scarcity_Memo.pdf` (see §1.5). Outcome-based; **overrides the single-season structure layer where they conflict** |
 | **Web research** (post-draft) | Player-level talent / landing spot / role for the 2026 class | Cited below; the 2026 NFL Draft post-dates the model's training cutoff, so this MUST come from research, not priors |
 | **Analyst weighting** | Turning the above into numbers (multipliers, bumps, tiers) | Judgment — the part to scrutinize / make configurable |
 
-**Key principle for the build agent:** keep the three layers separate in code.
-The positional-value layer is *derived from data* and should be recomputed when
-new season scores arrive. The player-intel layer is *research-fed* and should be
-refreshable. The weighting layer is *config* and should be exposed as tunable
-parameters, not hard-coded magic numbers.
+**Key principle for the build agent:** keep the layers separate in code. The
+positional-value structure is *derived from one season of data* and should be
+recomputed when new scores arrive. The history memo is a *multi-season outcome
+prior* and is the stronger evidence where the two disagree (bigger sample, ties
+directly to winning rather than to a replacement proxy). The player-intel layer
+is *research-fed*. The weighting layer is *config* — expose the `LEV` multipliers
+and bumps as tunable parameters, not hard-coded magic numbers.
+
+> Reconciliation rule used in the current board: **the history memo is given full
+> weight where it differs from the single-season curves.** The two agreed on the
+> spine (RB/LB premium; CB/S/DT churn) and the memo corrected the two positions
+> the single-season read got thin — TE (up) and DE (down). See §1.5.
 
 ---
 
@@ -104,11 +112,58 @@ QB needs special handling and is the most counterintuitive result.
 - **But** it's still 1-QB (you need one starter, not a weekly stack of four like
   LB), so QB leverage is a *one-slot* cliff vs LB's *four-slot* compounding
   cliff. Net: QB is a high multiplier, below LB/RB, above the streamable
-  positions. Encoded as `LEV['QB'] = 0.78`.
+  positions. Encoded as `LEV['QB'] = 0.78` here; later trimmed to 0.74 by the history memo (see §1.5).
 
 > Build-agent note: the QB result is entirely dependent on the 3-QB roster norm
 > and the 3-copy rule. If either changes (roster cap, copy count), recompute.
 > Expose roster-norm and copies as inputs.
+
+### 1.5 History memo — multi-season outcome priors (overrides §1.2 where conflicting)
+
+Source: `Positional_Value_and_Scarcity_Memo.pdf` — an independent study of **805
+franchise-seasons (2019–2025, EFA/EDSL/MLS)** measuring which *position rooms*
+actually correlated with winning (top-quartile room → all-play win-rate lift),
+plus trade-price and replaceability (waiver + late-rookie 150+ hit rates). This
+is **stronger evidence than §1.2** for positional priors: it's a much larger
+sample and ties to winning directly, not to a single-season replacement proxy.
+Where the two disagree, the memo wins (current board: full weight).
+
+Memo headline numbers (all-play win-rate lift from a top-quartile room):
+
+| Pos | Win-lift | Trade price | Waiver 150+ | Late-draft 150+ | Memo read |
+|---|---|---|---|---|---|
+| RB | 19.8 | 135.3 | 1.2% | 5.5% | Primary spend |
+| LB | 18.8 | 107.6 | 5.8% | 3.1% | Primary spend — **underpriced** |
+| TE | 14.4 | 97.0 | 1.7% | **0.0%** | Scarcity spend — **underpriced, unrepairable late** |
+| WR | 13.0 | 134.4 | 1.1% | 2.2% | Primary spend (expensive but earns it) |
+| S | 10.9 | 69.3 | 24.5% | 28.5% | Churn / opportunistic |
+| QB | 10.3 | 106.6 | 3.0% | 8.3% | Anchor spend — **don't stockpile depth** |
+| DE | 7.2 | 129.6 | 16.4% | 4.7% | **Likely overpay** — selective only |
+| DT | 5.7 | 77.3 | 21.9% | 3.3% | Churn / patchable |
+| CB | **-2.7** | 59.6 | 34.5% | 43.4% | **Do not pay** (only negative room) |
+
+Star-power note (memo §2): a 400+ RB was the cleanest single-star signal (+22.0);
+a 300+ TE was powerful (+18.3); WR/LB rewarded **room depth over one hammer**;
+400+ QB helped only modestly (+12.2). True-position era (post-2021) did not change
+the hierarchy — LB still crushed DE (19.0 vs 6.1).
+
+**How it reconciled with §1.2 (what changed vs the single-season-only board):**
+- **Agreement (no change):** RB & LB premium on top; CB, S, DT are churn/fades.
+  Both methods land here, which is the strongest possible signal.
+- **TE → UP** (`LEV` 0.53 → **0.66**): memo win-lift 14.4 > WR, and TE is the
+  hardest room to repair late (0% late-draft 150+). Single-season curves had
+  under-rated it. Biggest upward move on the board.
+- **DE → DOWN** (`LEV` 0.50 → **0.42**): documented overpay — 3rd-priciest trade
+  asset but only 7th in win-lift, weak even post-2021. Edge tier discounted.
+- **QB → slight trim** (`LEV` 0.78 → **0.74**): memo warns against luxury QB
+  depth, so the multiplier eases — **but** the in-league acquisition scarcity from
+  §1.3 keeps QB high overall (the memo measures *production swing*; §1.3 measures
+  *acquisition scarcity* — both true, not in conflict). Net: secure ONE anchor
+  QB high, don't stack QB2/QB3. (Also reflects manager's stated mild QB lean.)
+
+> Build-agent note: treat the memo as a **positional-prior config layer** feeding
+> `LEV`. If a future memo (more seasons / this league specifically) supersedes it,
+> swap the priors and recompute `LEV`; don't touch the formula or player bumps.
 
 ---
 
@@ -131,12 +186,20 @@ QB needs special handling and is the most counterintuitive result.
 
 ### 2.2 Positional leverage multipliers (`LEV`)
 
-Derived from §1.2 leverage, normalized so LB = 1.00, then QB lifted per §1.3:
+Derived from §1.2 leverage, normalized so LB = 1.00, then **reconciled with the
+history memo §1.5** (TE up, DE down, QB trimmed; RB/LB/CB/S/DT unchanged because
+both methods agree):
 
 ```
-LB 1.00 | RB 0.92 | QB 0.78 | WR 0.62 | TE 0.53 | DE 0.50
-DT 0.30 | S 0.33 | CB 0.28 | PK/PN/XX 0.00
+LB 1.00 | RB 0.94 | QB 0.74 | TE 0.66 | WR 0.62 | DE 0.42
+S 0.33 | DT 0.30 | CB 0.26 | PK/PN/XX 0.00
 ```
+
+> Provenance per value: LB/RB/WR from §1.2 single-season leverage (memo confirms).
+> TE 0.66 and DE 0.42 are memo-driven overrides (§1.5). QB 0.74 = §1.3 scarcity
+> minus the memo's "no luxury depth" trim. CB/S/DT from §1.2, memo-confirmed.
+> This block is the single most important config surface — change it here and the
+> whole board re-derives.
 
 ### 2.3 The composite
 
@@ -151,7 +214,7 @@ score  = 100 * (base + bump)
   offensive players).
 - `(0.55 + 0.45*lev)` scales talent by positional leverage but never below 55%
   of full credit — so a truly elite talent at a weak-leverage position still
-  ranks, just discounted (this is why Caleb Downs lands ~28, not buried at 60+).
+  ranks, just discounted (this is why Caleb Downs lands ~30, not buried at 60+).
 - `bump` is added *after* the leverage scaling so research adjustments are not
   themselves diluted by position.
 
@@ -166,13 +229,16 @@ T1: 1–5 | T2: 6–13 | T3: 14–25 | T4: 26–45 | T5: 46–75 | T6: 76–130 
 | Player | Pos | ADP | Capital | mv | cv | lev | base | Notes |
 |---|---|---|---|---|---|---|---|---|
 | Arvell Reese | LB | 18.5 | R1.5 | .646 | .936 | 1.00 | .499 | +0.30 bump → board #1 |
-| Ty Simpson | QB | 21.1 | R1.13 | .605 | .819 | 0.78 | .407 | +0.20 bump (QB scarcity) → #2 |
+| Ty Simpson | QB | 21.1 | R1.13 | .605 | .819 | 0.74 | .399 | +0.18 bump (QB scarcity, trimmed per memo) → #3 |
+| Max Klare | TE | 36.9 | R2.29 | .413 | .415 | 0.66 | .288 | +0.12 bump (TE scarcity, memo) → #10 (up from 18) |
 | Omar Cooper | WR | 14.1 | R1.30 | .721 | .617 | 0.62 | .365 | +0.10 bump → #6 |
-| Caleb Downs | S | 23.8 | R1.11 | .566 | .846 | 0.33 | .311 | −0.10 bump (S fade) → #28 |
-| Caleb Banks | DT | 55.4 | R1.18 | .257 | .753 | 0.30 | .208 | no bump (DT fade) → #29 |
+| David Bailey | DE | 24.1 | R1.2 | .564 | .940 | 0.42 | .314 | +0.14 bump (talent), DE capped per memo → #5 |
+| Caleb Downs | S | 23.8 | R1.11 | .566 | .846 | 0.33 | .311 | −0.10 bump (S fade) → #30 |
+| Caleb Banks | DT | 55.4 | R1.18 | .257 | .753 | 0.30 | .208 | no bump (DT fade) → #31 |
 
 Note how Downs and Banks have strong *talent* (.706, .505) but the low `lev`
-multiplier pulls them down — the league-fit fade is doing exactly its job.
+multiplier pulls them down; conversely Klare's modest talent is lifted by the
+memo-driven TE multiplier — the positional layer is doing exactly its job.
 
 ---
 
@@ -272,7 +338,7 @@ All other players: `bump = 0`, ranked on formula alone.
 5. **Replacement curves use 2025.** Recompute when newer league-scored seasons
    exist; positional value can shift with rule or roster-setting changes.
 6. **Most contestable single call:** Caleb Downs faded to ~28 (blue-chip safety,
-   low positional leverage) and Ty Simpson lifted to ~2 (QB scarcity structure).
+   low positional leverage) and Ty Simpson lifted to ~3 (QB scarcity structure).
    Both are defensible from league data but are the first knobs to revisit.
 
 ---
