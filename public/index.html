@@ -50,6 +50,17 @@
     margin-top: 12px; color: var(--mut); display: flex; align-items: center; gap: 6px; }
   .hero .autopick b { font-family: var(--slab); font-variant-numeric: tabular-nums; color: var(--txt); }
   .hero .autopick.off { opacity: .7; }
+  /* clock terrorist — slow-poke callout in the hero's open space */
+  .hero .terrorist { position: absolute; top: 14px; right: 13px; z-index: 3; text-align: center;
+    transform: rotate(-7deg); animation: rise .5s both; }
+  .hero .ctsvg { width: 50px; height: 50px; display: block; margin: 0 auto;
+    filter: drop-shadow(0 0 11px rgba(255,45,149,.55)); }
+  .hero .terrorist .lbl { font-family: var(--disp); font-weight: 800; font-size: 8.5px; line-height: 1.05;
+    letter-spacing: .08em; color: var(--take); margin-top: 4px; border: 1px solid var(--take);
+    border-radius: 4px; padding: 2px 4px; background: rgba(255,45,149,.1); }
+  .hrow.terror { border-left: 2px solid var(--take); padding-left: 8px; margin: 0 -6px; border-radius: 6px; }
+  .hdur { font-family: var(--slab); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hrow.terror .hdur { color: var(--take); }
 
   /* hero — the one maximalist moment */
   .hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--dusk2);
@@ -243,6 +254,24 @@
 <script>
 const $ = (s) => document.querySelector(s);
 let latest = null;
+const SLOW_SECS = 10800; // 3h = clock terrorist
+
+// hand-drawn bandit-clock: a clock face in a ski mask with a lit fuse
+const CT_SVG = `<svg viewBox="0 0 48 48" class="ctsvg" aria-label="clock terrorist">
+  <path d="M24 9 Q29 4 32 8" fill="none" stroke="#735fa6" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="32.5" cy="7" r="3" fill="#ffab33"/><circle cx="32.5" cy="7" r="1.3" fill="#ff2d95"/>
+  <circle cx="24" cy="29" r="15" fill="#f6eeff" stroke="#ff2d95" stroke-width="2"/>
+  <line x1="24" y1="29" x2="24" y2="20" stroke="#181030" stroke-width="2" stroke-linecap="round"/>
+  <line x1="24" y1="29" x2="30" y2="31" stroke="#181030" stroke-width="2" stroke-linecap="round"/>
+  <path d="M10 27 A15 15 0 0 1 38 27 L38 31 Q24 37 10 31 Z" fill="#15101f"/>
+  <ellipse cx="18" cy="27.5" rx="3.1" ry="2.3" fill="#f6eeff"/>
+  <ellipse cx="30" cy="27.5" rx="3.1" ry="2.3" fill="#f6eeff"/>
+  <circle cx="18.7" cy="27.8" r="1.1" fill="#ff2d95"/><circle cx="30.7" cy="27.8" r="1.1" fill="#ff2d95"/>
+  <path d="M14.5 24 L21 26" stroke="#f6eeff" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M33.5 24 L27 26" stroke="#f6eeff" stroke-width="1.6" stroke-linecap="round"/>
+</svg>`;
+const terroristBadge = () => `<div class="terrorist">${CT_SVG}<div class="lbl">CLOCK<br>TERRORIST</div></div>`;
+const fmtShort = (s) => { if (s == null) return ""; const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; };
 
 async function load() {
   try {
@@ -262,14 +291,16 @@ function render(b) {
   const me = clock && clock.isMe;
 
   const clockEl = b.clock ? `<div class="bigclock" id="clock"></div>` : "";
+  const slowTeam = clock && b.lastPickAt && (Math.floor(Date.now() / 1000) - b.lastPickAt) > SLOW_SECS;
+  const ct = slowTeam ? terroristBadge() : "";
   $("#hero").innerHTML = me
-    ? `<div class="hero me"><div class="eyebrow">● On the clock</div>
+    ? `<div class="hero me">${ct}<div class="eyebrow">● On the clock</div>
          <h1>Round ${+clock.round}, Pick ${+clock.pick}</h1>
          ${clockEl}
          <div class="sub">tap a player below to draft them${b.dryRun ? " · <b>dry run</b>" : ""}</div>
          ${b.autopick ? `<div class="autopick${b.autopick.armed ? "" : " off"}" id="autopick"></div>` : ""}
          <div class="sunset"></div></div>`
-    : `<div class="hero"><div class="eyebrow">On the clock</div>
+    : `<div class="hero">${ct}<div class="eyebrow">On the clock</div>
          <h1>${clock ? (clock.franchiseName || `Franchise ${clock.franchise}`) : "Draft complete"}</h1>
          ${clockEl}
          <div class="sub">${b.myNextPick
@@ -394,9 +425,12 @@ function renderHistory(b) {
   $("#hhint").textContent = `${b.picks.length} picks`;
   if (!b.picks.length) { $("#history").innerHTML = `<div class="skel">no picks yet</div>`; return; }
   $("#history").innerHTML = b.picks.map((p) => `
-    <div class="hrow ${p.mine ? "mine" : ""}">
+    <div class="hrow ${p.mine ? "mine" : ""} ${p.slow ? "terror" : ""}">
       <span class="hpk">${+p.round}.${String(p.pick).padStart(2, "0")}</span>
-      <div class="hwho"><div class="hplayer">${p.name}</div><div class="hteam">${p.team}</div></div>
+      <div class="hwho">
+        <div class="hplayer">${p.name}${p.slow ? " 💣⏰" : ""}</div>
+        <div class="hteam">${p.team}${p.secs != null ? ` · <span class="hdur">${fmtShort(p.secs)}</span>` : ""}${p.slow ? " · CLOCK TERRORIST" : ""}</div>
+      </div>
       <span class="hpos">${p.pos}</span>
     </div>`).join("");
 }

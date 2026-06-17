@@ -41,8 +41,8 @@ test("buildHistory lists made picks newest-first with names resolved", () => {
       draftUnit: {
         unit: "LEAGUE", draftType: "SAME",
         draftPick: [
-          { round: "01", pick: "01", franchise: "0007", player: "100", timestamp: "1" },
-          { round: "01", pick: "02", franchise: "0042", player: "200", timestamp: "2" },
+          { round: "01", pick: "01", franchise: "0007", player: "100", timestamp: "1000" },
+          { round: "01", pick: "02", franchise: "0042", player: "200", timestamp: "12000" }, // 11000s = >3h
           { round: "01", pick: "03", franchise: "0009", player: "", timestamp: "" }, // unmade
         ],
       },
@@ -61,4 +61,9 @@ test("buildHistory lists made picks newest-first with names resolved", () => {
   assert.equal(hist[1].overall, 1);
   assert.equal(hist[1].mine, false);
   assert.equal(hist[1].pos, "LB");
+  // clock-terrorist detection: pick 2 took 11000s (>3h) -> slow; pick 1 has no prior -> not slow
+  assert.equal(hist[0].secs, 11000);
+  assert.equal(hist[0].slow, true);
+  assert.equal(hist[1].secs, null);
+  assert.equal(hist[1].slow, false);
 });

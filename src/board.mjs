@@ -42,21 +42,30 @@ export function buildBoard(draftResults, rankedBoard, posOf, opts = {}) {
 }
 
 // Made picks, newest-first, with team/player names resolved via injected lookups.
-export function buildHistory(draftResults, myFranchiseId, lookups = {}) {
+// Each pick's `secs` = time it took (its timestamp minus the prior pick's), and
+// `slow` flags a "clock terrorist" (over slowSeconds, default 3h).
+export function buildHistory(draftResults, myFranchiseId, lookups = {}, opts = {}) {
   const { teamOf = () => null, nameOf = () => null, posOf = () => null } = lookups;
+  const { slowSeconds = 10800 } = opts;
   const state = parseState(draftResults, myFranchiseId);
-  return state.picks
-    .filter((p) => p.player !== null)
-    .map((p) => ({
-      overall: p.overall,
-      round: p.round,
-      pick: p.pick,
-      franchise: p.franchise,
-      team: teamOf(p.franchise) ?? `Franchise ${p.franchise}`,
-      player: p.player,
-      name: nameOf(p.player) ?? p.player,
-      pos: posOf(p.player) ?? "?",
-      mine: p.mine,
-    }))
+  const made = state.picks.filter((p) => p.player !== null); // sorted by overall
+  return made
+    .map((p, i) => {
+      const prevTs = i > 0 ? made[i - 1].timestamp : null;
+      const secs = p.timestamp != null && prevTs != null ? p.timestamp - prevTs : null;
+      return {
+        overall: p.overall,
+        round: p.round,
+        pick: p.pick,
+        franchise: p.franchise,
+        team: teamOf(p.franchise) ?? `Franchise ${p.franchise}`,
+        player: p.player,
+        name: nameOf(p.player) ?? p.player,
+        pos: posOf(p.player) ?? "?",
+        mine: p.mine,
+        secs,
+        slow: secs != null && secs > slowSeconds,
+      };
+    })
     .reverse();
 }
