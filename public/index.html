@@ -39,6 +39,7 @@
     font-variant-numeric: tabular-nums; }
   .dry { font-family: var(--disp); font-size: 10px; font-weight: 800; letter-spacing: .12em;
     padding: 3px 7px; border: 1px solid var(--lean); color: var(--lean); border-radius: 4px; }
+  .dry.live { border-color: var(--wait); color: var(--wait); }
   .bigclock { position: relative; font-family: var(--slab); font-weight: 700;
     font-variant-numeric: tabular-nums; font-size: 27px; line-height: 1; color: var(--txt);
     margin-top: 13px; letter-spacing: .01em; }
@@ -225,7 +226,7 @@
     <span class="brand" id="brand">METROSTARS</span>
     <span class="spacer"></span>
     <span class="prog" id="prog">—</span>
-    <span class="dry" id="dry" hidden>DRY RUN</span>
+    <span class="dry" id="dry"></span>
   </header>
   <main id="view-draft">
     <div id="hero"></div>
@@ -305,7 +306,8 @@ async function load() {
 }
 
 function render(b) {
-  $("#dry").hidden = !b.dryRun;
+  $("#dry").textContent = b.dryRun ? "DRY RUN" : "● LIVE";
+  $("#dry").classList.toggle("live", !b.dryRun);
   if (b.myTeam) $("#brand").textContent = b.myTeam;
   $("#prog").textContent = `PICK ${b.picksMade + 1} / ${b.totalPicks}`;
   const clock = b.onTheClock;
