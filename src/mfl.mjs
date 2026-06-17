@@ -41,6 +41,23 @@ export async function exp(type, args = {}) {
   return data;
 }
 
+// Normalize an MFL import response. Imports return XML (`<status>OK</status>` or
+// `<error>...</error>`) and ignore JSON=1, so we can't blindly res.json(). Pure
+// so it can be unit-tested without the network. Throws on a detectable error.
+export function parseImportResponse(text) {
+  const t = text.trim();
+  if (t.startsWith("{") || t.startsWith("[")) {
+    const data = JSON.parse(t);
+    if (data?.error) throw new Error(`import error: ${data.error}`);
+    return data;
+  }
+  const err = t.match(/<error>([\s\S]*?)<\/error>/i);
+  if (err) throw new Error(`import error: ${err[1].trim()}`);
+  const status = t.match(/<status>([\s\S]*?)<\/status>/i);
+  if (status) return { status: status[1].trim() };
+  return { raw: t };
+}
+
 // import = writes (draft picks, etc). POST. NOTE: the exact TYPE for submitting a
 // pick is case-sensitive — confirm it on api_info?STATE=test before enabling auto-pick.
 export async function imp(type, args = {}) {
@@ -54,7 +71,7 @@ export async function imp(type, args = {}) {
     body: new URLSearchParams({ TYPE: type, L: cfg.leagueId, JSON: "1", ...args }),
   });
   if (!res.ok) throw new Error(`import ${type} -> HTTP ${res.status}`);
-  return res.json();
+  return parseImportResponse(await res.text());
 }
 
 // MFL quirk: a single child is returned as an object, multiple as an array.
