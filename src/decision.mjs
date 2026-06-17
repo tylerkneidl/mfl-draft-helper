@@ -14,6 +14,17 @@ export function gapAfter(state, i = 0) {
   return up[i + 1].overall - up[i].overall;
 }
 
+// Picks between now and when I'm NEXT on the clock — the "peek ahead" horizon
+// (will this player still be here when I get to pick?). 0 if I'm on the clock now.
+export function picksUntilMine(state) {
+  const clock = state.onTheClock;
+  if (!clock) return null;
+  if (clock.isMe) return 0;
+  const mine = state.myUpcomingPicks?.[0];
+  if (!mine) return null;
+  return mine.overall - clock.overall;
+}
+
 const choose = (n, k) => {
   if (k < 0 || k > n) return 0;
   let c = 1;
@@ -63,8 +74,10 @@ export function takeOrWait(pSurvive, { waitAbove = 0.75, takeBelow = 0.4 } = {})
 
 // Annotate each candidate with gap, p_pick, pSurvive and a take/wait/lean call.
 export function evaluate(candidates, state, posOf, opts = {}) {
-  const { window, copies = 3, thresholds, ...ppickOpts } = opts;
-  const gap = gapAfter(state, 0);
+  const { window, copies = 3, thresholds, gap: gapOpt, ...ppickOpts } = opts;
+  // Caller may override the survival horizon (peek-ahead uses picksUntilMine);
+  // default is the take-vs-wait gap between my consecutive picks.
+  const gap = "gap" in opts ? gapOpt : gapAfter(state, 0);
   const runRate = recentRunRate(state, posOf, window);
   return candidates.map((c) => {
     const remaining = c.remaining ?? copies;

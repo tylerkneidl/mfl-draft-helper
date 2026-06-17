@@ -131,7 +131,7 @@
     <span class="dry" id="dry" hidden>DRY RUN</span>
   </header>
   <div id="hero"></div>
-  <div class="listhead"><h2>Who do you want?</h2><span class="hint" id="hint"></span></div>
+  <div class="listhead"><h2 id="listtitle">Board</h2><span class="hint" id="hint"></span></div>
   <div id="list"><div class="skel">acquiring draft feed…</div></div>
   <div class="foot" id="foot"></div>
 </div>
@@ -171,8 +171,10 @@ function render(b) {
             ? `your pick: <b>R${+b.myNextPick.round} P${+b.myNextPick.pick}</b> · in <b>${b.gap}</b> picks`
             : "no upcoming picks"}</div></div>`;
 
-  $("#hint").textContent = me ? "tap to draft" : "plan ahead";
-  $("#list").innerHTML = b.candidates.map((c, i) => card(c, i, me)).join("");
+  $("#listtitle").textContent = me ? "Who do you want?"
+    : `Likely at your pick${b.myNextPick ? ` (R${+b.myNextPick.round} P${+b.myNextPick.pick})` : ""}`;
+  $("#hint").textContent = me ? "tap to draft" : "peek ahead";
+  $("#list").innerHTML = b.candidates.map((c, i) => card(c, i, b.mode)).join("");
   b.candidates.forEach((c) => {
     const el = document.getElementById("draft-" + c.id);
     if (el) el.onclick = () => confirmPick(c);
@@ -180,22 +182,28 @@ function render(b) {
   $("#foot").textContent = `updated ${new Date().toLocaleTimeString()} · auto-refresh 15s`;
 }
 
-function card(c, i, me) {
+function card(c, i, mode) {
+  const me = mode === "onclock";
   const pct = Math.round(c.pSurvive * 100);
   const col = callColor[c.call];
   const dots = [0, 1, 2].map((d) => `<span class="dot ${d < c.remaining ? "on" : ""}"></span>`).join("");
-  const label = c.call === "take" ? "TAKE NOW" : c.call.toUpperCase();
+  // chip wording depends on context: on the clock you can act (take/wait);
+  // waiting, you can only forecast (safe/slipping).
+  const labels = me
+    ? { take: "TAKE NOW", lean: "LEAN", wait: "WAIT" }
+    : { take: "SLIPPING", lean: "COIN FLIP", wait: "SAFE" };
+  const survLabel = me ? "survives to your next pick" : "survives to your pick";
   return `<div class="card ${me ? "actionable" : ""}" style="animation-delay:${i * 55}ms">
     <div class="top">
       <span class="rk">#${c.rank}</span>
       <div class="who"><div class="nm">${c.name}</div><div class="meta">${c.pos} · ${c.nfl}</div></div>
-      <span class="chip ${c.call}">${label}</span>
+      <span class="chip ${c.call}">${labels[c.call]}</span>
     </div>
     <div class="stats">
       <div class="copies" title="copies left">${dots}</div>
       <div class="surv">
         <div class="bar"><div class="fill" style="width:${pct}%;background:${col}"></div></div>
-        <div class="lab"><span>survives to your pick</span><span style="color:${col}">${pct}%</span></div>
+        <div class="lab"><span>${survLabel}</span><span style="color:${col}">${pct}%</span></div>
       </div>
     </div>
     <div class="why">${c.why}</div>

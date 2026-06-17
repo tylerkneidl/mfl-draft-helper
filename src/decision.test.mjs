@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { parseState } from "./state.mjs";
 import {
   gapAfter,
+  picksUntilMine,
   binomialSurvival,
   recentRunRate,
   estimatePPick,
@@ -29,6 +30,22 @@ test("gapAfter reads the gap to my next pick from real state", () => {
 test("gapAfter is null when there is no next pick", () => {
   const state = { myUpcomingPicks: [{ overall: 256 }] };
   assert.equal(gapAfter(state, 0), null);
+});
+
+// --- picksUntilMine: picks until I am next on the clock (the peek horizon) ---
+
+test("picksUntilMine counts picks from the clock to my next pick", () => {
+  const state = parseState(draftResults, "0042");
+  // fixture: clock at overall 33, my next pick overall 45 -> 12
+  assert.equal(picksUntilMine(state), 12);
+});
+
+test("picksUntilMine is 0 when I am on the clock", () => {
+  const state = {
+    onTheClock: { overall: 45, isMe: true },
+    myUpcomingPicks: [{ overall: 45 }, { overall: 65 }],
+  };
+  assert.equal(picksUntilMine(state), 0);
 });
 
 // --- binomialSurvival: P(>=1 copy survives `gap` picks) ---
@@ -97,4 +114,17 @@ test("evaluate annotates candidates with pSurvive and a take/wait call", () => {
   assert.ok(["take", "wait", "lean"].includes(r.call));
   // last copy, high positional demand, 20-pick gap -> almost surely gone -> "take"
   assert.equal(r.call, "take");
+});
+
+test("evaluate honors an explicit gap override (peek horizon)", () => {
+  const state = {
+    myUpcomingPicks: [{ overall: 45 }, { overall: 65 }], // gapAfter would be 20
+    picks: [],
+  };
+  const candidates = [{ rank: 1, id: "X", pos: "LB", remaining: 3 }];
+  // short peek gap of 2 -> can't burn 3 copies -> certain survival
+  const [r] = evaluate(candidates, state, new Map(), { gap: 2, prior: { LB: 0.5 } });
+  assert.equal(r.gap, 2);
+  assert.equal(r.pSurvive, 1);
+  assert.equal(r.call, "wait");
 });

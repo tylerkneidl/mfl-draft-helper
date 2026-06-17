@@ -22,7 +22,12 @@ test("buildBoard composes state + candidates + decision into one payload", () =>
   assert.equal(r.onTheClock.isMe, false);
   assert.equal(r.myNextPick.round, "01");
   assert.equal(r.myNextPick.pick, "45");
-  assert.equal(r.gap, 20);
+  // not on the clock -> peek mode: survival horizon is "until my pick" (33 -> 45 = 12),
+  // not the take-vs-wait gap between my consecutive picks (45 -> 65 = 20).
+  assert.equal(r.mode, "peek");
+  assert.equal(r.picksUntilMyPick, 12);
+  assert.equal(r.picksUntilNextPick, 20);
+  assert.equal(r.gap, 12);
   assert.equal(r.candidates.length, 5);
   assert.equal(r.candidates[0].id, "17556"); // Reese, top available
   assert.ok(r.candidates.every((c) => ["take", "wait", "lean"].includes(c.call)));
