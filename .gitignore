@@ -1,3 +1,6 @@
 node_modules/
 .env
 data/*.json
+# runtime data the server reads on boot — must ship to deploy
+!data/rookie_board_final.json
+!data/players.json
