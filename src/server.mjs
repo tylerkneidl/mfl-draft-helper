@@ -7,13 +7,14 @@ import { readFile } from "node:fs/promises";
 import { cfg } from "./config.mjs";
 import { login, exp, imp, arr } from "./mfl.mjs";
 import { parseState } from "./state.mjs";
-import { buildBoard } from "./board.mjs";
+import { buildBoard, buildHistory } from "./board.mjs";
 import { withAvailability } from "./candidates.mjs";
 
 const here = (p) => new URL(p, import.meta.url);
 const rankedBoard = JSON.parse(await readFile(here("../data/rookie_board_final.json")));
 const dict = JSON.parse(await readFile(here("../data/players.json")));
 const posOf = new Map(arr(dict.players.player).map((p) => [p.id, p.position]));
+const nameById = new Map(arr(dict.players.player).map((p) => [p.id, p.name]));
 
 // Positional demand prior (DRAFT-DECISION-LOGIC.md §1): LB/QB/RB steep, DB/DT flat.
 const prior = { LB: 0.1, QB: 0.08, RB: 0.08, WR: 0.06, TE: 0.05, DE: 0.05, DT: 0.03, S: 0.03, CB: 0.03 };
@@ -21,11 +22,29 @@ const boardOpts = (count) => ({ myFranchiseId: cfg.franchiseId, count, prior, wi
 
 await login();
 
+// Resolve franchise ids -> team names (one read at startup; names are stable).
+const league = (await exp("league")).league;
+const teamById = new Map(arr(league.franchises.franchise).map((f) => [f.id, f.name]));
+const teamName = (id) => teamById.get(id) ?? `Franchise ${id}`;
+const myTeam = teamName(cfg.franchiseId);
+
 const app = Fastify({ logger: false });
 
 app.get("/api/board", async () => {
   const dr = await exp("draftResults");
-  return { ...buildBoard(dr, rankedBoard, posOf, boardOpts(cfg.candidateCount)), dryRun: cfg.dryRun };
+  const b = buildBoard(dr, rankedBoard, posOf, boardOpts(cfg.candidateCount));
+  if (b.onTheClock) b.onTheClock.franchiseName = teamName(b.onTheClock.franchise);
+  return { ...b, myTeam, dryRun: cfg.dryRun };
+});
+
+app.get("/api/history", async () => {
+  const dr = await exp("draftResults");
+  const picks = buildHistory(dr, cfg.franchiseId, {
+    teamOf: teamName,
+    nameOf: (id) => nameById.get(id),
+    posOf: (id) => posOf.get(id),
+  });
+  return { picks, myTeam };
 });
 
 app.get("/api/rankings", async () => {

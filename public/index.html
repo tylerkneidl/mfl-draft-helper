@@ -28,6 +28,7 @@
   header { display: flex; align-items: center; gap: 10px; padding: 18px 4px 14px;
     position: sticky; top: 0; z-index: 5; background: linear-gradient(var(--dusk) 72%, transparent); }
   .brand { font-family: var(--disp); font-weight: 800; font-size: 17px; letter-spacing: .06em;
+    text-transform: uppercase;
     background: linear-gradient(90deg, var(--take), var(--violet) 55%, var(--wait));
     -webkit-background-clip: text; background-clip: text; color: transparent; }
   .live { width: 8px; height: 8px; border-radius: 50%; background: var(--wait);
@@ -176,13 +177,27 @@
   .gonetag { font-family: var(--disp); font-size: 9px; font-weight: 800; letter-spacing: .1em;
     color: var(--take); border: 1px solid var(--take); border-radius: 4px; padding: 2px 6px; }
 
+  /* draft history rows */
+  .hrow { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+  .hrow.mine { background: rgba(255,45,149,.08); border-left: 2px solid var(--take);
+    padding-left: 8px; margin: 0 -6px; border-radius: 6px; border-bottom-color: transparent; }
+  .hpk { font-family: var(--slab); font-weight: 700; font-size: 13px; color: var(--mut);
+    min-width: 42px; font-variant-numeric: tabular-nums; }
+  .hwho { flex: 1; min-width: 0; }
+  .hplayer { font-family: var(--disp); font-weight: 700; font-size: 16px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hteam { font-family: var(--disp); font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--mut); margin-top: 1px; }
+  .hpos { font-family: var(--disp); font-size: 10px; font-weight: 800; letter-spacing: .08em;
+    color: var(--gold); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
+
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
 <div id="app">
   <header>
     <span class="live"></span>
-    <span class="brand">METROSTARS</span>
+    <span class="brand" id="brand">METROSTARS</span>
     <span class="spacer"></span>
     <span class="prog" id="prog">—</span>
     <span class="dry" id="dry" hidden>DRY RUN</span>
@@ -198,11 +213,16 @@
     <div class="listhead"><h2 id="rtitle">Full Board</h2><span class="hint" id="rhint"></span></div>
     <div id="rankings"><div class="skel">loading board…</div></div>
   </main>
+  <main id="view-history" hidden>
+    <div class="listhead"><h2>Draft History</h2><span class="hint" id="hhint"></span></div>
+    <div id="history"><div class="skel">loading history…</div></div>
+  </main>
 </div>
 
 <nav class="tabs">
   <button class="tab active" data-tab="draft"><span>◈</span> Draft</button>
   <button class="tab" data-tab="board"><span>≣</span> Board</button>
+  <button class="tab" data-tab="history"><span>⟲</span> History</button>
 </nav>
 
 <div class="sheet" id="sheet">
@@ -225,6 +245,7 @@ async function load() {
 
 function render(b) {
   $("#dry").hidden = !b.dryRun;
+  if (b.myTeam) $("#brand").textContent = b.myTeam;
   $("#prog").textContent = `PICK ${b.picksMade + 1} / ${b.totalPicks}`;
   const clock = b.onTheClock;
   const me = clock && clock.isMe;
@@ -235,7 +256,7 @@ function render(b) {
          <div class="sub">tap a player below to draft them${b.dryRun ? " · <b>dry run</b>" : ""}</div>
          <div class="sunset"></div></div>`
     : `<div class="hero"><div class="eyebrow">On the clock</div>
-         <h1>${clock ? `Franchise ${clock.franchise}` : "Draft complete"}</h1>
+         <h1>${clock ? (clock.franchiseName || `Franchise ${clock.franchise}`) : "Draft complete"}</h1>
          <div class="sub">${b.myNextPick
             ? `your pick: <b>R${+b.myNextPick.round} P${+b.myNextPick.pick}</b> · in <b>${b.gap}</b> picks`
             : "no upcoming picks"}</div>
@@ -352,19 +373,37 @@ async function loadRankings() {
   catch { $("#rankings").innerHTML = `<div class="skel">board unavailable</div>`; }
 }
 
+// --- draft history tab ---
+function renderHistory(b) {
+  $("#hhint").textContent = `${b.picks.length} picks`;
+  if (!b.picks.length) { $("#history").innerHTML = `<div class="skel">no picks yet</div>`; return; }
+  $("#history").innerHTML = b.picks.map((p) => `
+    <div class="hrow ${p.mine ? "mine" : ""}">
+      <span class="hpk">${+p.round}.${String(p.pick).padStart(2, "0")}</span>
+      <div class="hwho"><div class="hplayer">${p.name}</div><div class="hteam">${p.team}</div></div>
+      <span class="hpos">${p.pos}</span>
+    </div>`).join("");
+}
+async function loadHistory() {
+  try { renderHistory(await (await fetch("/api/history")).json()); }
+  catch { $("#history").innerHTML = `<div class="skel">history unavailable</div>`; }
+}
+
 // --- tabs ---
 let tab = "draft";
+const refreshTab = () => (tab === "draft" ? load() : tab === "board" ? loadRankings() : loadHistory());
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.onclick = () => {
     tab = btn.dataset.tab;
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === btn));
     $("#view-draft").hidden = tab !== "draft";
     $("#view-board").hidden = tab !== "board";
-    if (tab === "board") loadRankings();
+    $("#view-history").hidden = tab !== "history";
+    if (tab !== "draft") refreshTab();
     window.scrollTo(0, 0);
   };
 });
 
 load();
-setInterval(() => (tab === "draft" ? load() : loadRankings()), 15000);
+setInterval(refreshTab, 15000);
 </script>

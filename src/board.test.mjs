@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildBoard } from "./board.mjs";
+import { buildBoard, buildHistory } from "./board.mjs";
 
 const draftResults = JSON.parse(
   await readFile(new URL("../data/draftResults.json", import.meta.url)),
@@ -32,4 +32,32 @@ test("buildBoard composes state + candidates + decision into one payload", () =>
   assert.equal(r.candidates[0].id, "17556"); // Reese, top available
   assert.ok(r.candidates.every((c) => ["take", "wait", "lean"].includes(c.call)));
   assert.ok(r.candidates.every((c) => c.remaining >= 1));
+});
+
+test("buildHistory lists made picks newest-first with names resolved", () => {
+  const fx = {
+    draftResults: {
+      draftUnit: {
+        unit: "LEAGUE", draftType: "SAME",
+        draftPick: [
+          { round: "01", pick: "01", franchise: "0007", player: "100", timestamp: "1" },
+          { round: "01", pick: "02", franchise: "0042", player: "200", timestamp: "2" },
+          { round: "01", pick: "03", franchise: "0009", player: "", timestamp: "" }, // unmade
+        ],
+      },
+    },
+  };
+  const hist = buildHistory(fx, "0042", {
+    teamOf: (id) => ({ "0007": "Aces", "0042": "MetroStars", "0009": "Bolts" })[id],
+    nameOf: (id) => ({ "100": "Smith, Joe", "200": "Doe, Jane" })[id],
+    posOf: (id) => ({ "100": "LB", "200": "WR" })[id],
+  });
+  assert.equal(hist.length, 2); // unmade slot excluded
+  assert.equal(hist[0].overall, 2); // newest first
+  assert.equal(hist[0].name, "Doe, Jane");
+  assert.equal(hist[0].team, "MetroStars");
+  assert.equal(hist[0].mine, true);
+  assert.equal(hist[1].overall, 1);
+  assert.equal(hist[1].mine, false);
+  assert.equal(hist[1].pos, "LB");
 });

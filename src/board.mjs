@@ -35,3 +35,23 @@ export function buildBoard(draftResults, rankedBoard, posOf, opts = {}) {
     candidates: evaluated,
   };
 }
+
+// Made picks, newest-first, with team/player names resolved via injected lookups.
+export function buildHistory(draftResults, myFranchiseId, lookups = {}) {
+  const { teamOf = () => null, nameOf = () => null, posOf = () => null } = lookups;
+  const state = parseState(draftResults, myFranchiseId);
+  return state.picks
+    .filter((p) => p.player !== null)
+    .map((p) => ({
+      overall: p.overall,
+      round: p.round,
+      pick: p.pick,
+      franchise: p.franchise,
+      team: teamOf(p.franchise) ?? `Franchise ${p.franchise}`,
+      player: p.player,
+      name: nameOf(p.player) ?? p.player,
+      pos: posOf(p.player) ?? "?",
+      mine: p.mine,
+    }))
+    .reverse();
+}
