@@ -46,6 +46,10 @@
     text-transform: uppercase; color: var(--mut); margin-left: 7px; }
   .bigclock.warn { color: var(--lean); }
   .bigclock.crit { color: var(--take); animation: blink 1s steps(2) infinite; }
+  .hero .autopick { font-family: var(--disp); font-weight: 700; font-size: 12.5px; letter-spacing: .03em;
+    margin-top: 12px; color: var(--mut); display: flex; align-items: center; gap: 6px; }
+  .hero .autopick b { font-family: var(--slab); font-variant-numeric: tabular-nums; color: var(--txt); }
+  .hero .autopick.off { opacity: .7; }
 
   /* hero — the one maximalist moment */
   .hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--dusk2);
@@ -263,6 +267,7 @@ function render(b) {
          <h1>Round ${+clock.round}, Pick ${+clock.pick}</h1>
          ${clockEl}
          <div class="sub">tap a player below to draft them${b.dryRun ? " · <b>dry run</b>" : ""}</div>
+         ${b.autopick ? `<div class="autopick${b.autopick.armed ? "" : " off"}" id="autopick"></div>` : ""}
          <div class="sunset"></div></div>`
     : `<div class="hero"><div class="eyebrow">On the clock</div>
          <h1>${clock ? (clock.franchiseName || `Franchise ${clock.franchise}`) : "Draft complete"}</h1>
@@ -431,6 +436,16 @@ function tickClock() {
   el.innerHTML = rem > 0
     ? `⏱ ${fmtDur(rem)}<span class="u">${me ? "to pick" : "left"}</span>`
     : `⏱<span class="u">time expired</span>`;
+  // auto-pick countdown (only present on my clock)
+  const ap = $("#autopick");
+  if (ap && latest?.autopick) {
+    const a = latest.autopick.deadline - Math.floor(Date.now() / 1000);
+    const verb = latest.autopick.armed ? "Auto-picks" : "Would auto-pick";
+    const who = latest.autopick.player.name.split(",")[0];
+    ap.innerHTML = a > 0
+      ? `🛟 ${verb} <b>${who}</b> in <b>${fmtDur(a)}</b>${latest.autopick.armed ? "" : " · off"}`
+      : `🛟 ${latest.autopick.armed ? "Auto-picking" : "Would auto-pick"} <b>${who}</b>…`;
+  }
 }
 setInterval(tickClock, 1000);
 

@@ -18,6 +18,8 @@ export const cfg = {
   // safety
   dryRun: (process.env.DRY_RUN ?? "true") === "true",
   autoPick: (process.env.AUTO_PICK ?? "false") === "true",
+  // auto-pick fires this long after the pick becomes ours, if we haven't acted.
+  autoPickGraceSeconds: Number(process.env.AUTO_PICK_GRACE_SECONDS ?? 900), // 15 min
   candidateCount: Number(process.env.CANDIDATE_COUNT ?? 6),
   port: Number(process.env.PORT ?? 3000),
 

@@ -74,6 +74,24 @@ export async function imp(type, args = {}) {
   return parseImportResponse(await res.text());
 }
 
+// Submit a live draft pick. NOT an import — a dedicated /live_draft endpoint
+// (CMD=DRAFT) per MFL FAQ 935. MFL rejects anything that isn't the current slot
+// ("Not the current round/pick"), so this can only ever affect the live pick.
+// Returns the parsed result; throws unless success === "OK".
+export async function submitPick({ player, round, pick }) {
+  if (!cookie) throw new Error("submitPick requires login()");
+  const p = new URLSearchParams({
+    L: cfg.leagueId, CMD: "DRAFT", PLAYER_PICK: player, ROUND: round, PICK: pick, JSON: "1",
+  });
+  const res = await fetch(`${base()}/live_draft?${p}`, {
+    headers: { Cookie: `MFL_USER_ID=${cookie}` },
+  });
+  if (!res.ok) throw new Error(`live_draft -> HTTP ${res.status}`);
+  const data = await res.json();
+  if (data?.success !== "OK") throw new Error(`live_draft -> ${data?.response || "rejected"}`);
+  return data;
+}
+
 // MFL quirk: a single child is returned as an object, multiple as an array.
 // Wrap every list access in this or you'll get intermittent crashes.
 export const arr = (x) => (x == null ? [] : Array.isArray(x) ? x : [x]);

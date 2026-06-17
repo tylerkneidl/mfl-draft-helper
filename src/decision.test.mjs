@@ -11,6 +11,7 @@ import {
   takeOrWait,
   evaluate,
   tradeSignal,
+  shouldAutoPick,
 } from "./decision.mjs";
 
 const draftResults = JSON.parse(
@@ -151,6 +152,22 @@ test("tradeSignal stays SILENT in the common case (good player will reach me)", 
     { rank: 2, tier: 1, pSurvive: 0.95 },
   ];
   assert.equal(tradeSignal(cands), null);
+});
+
+// --- shouldAutoPick: fire after grace elapses on my clock ---
+
+test("shouldAutoPick returns the top candidate once grace elapses on my clock", () => {
+  const board = { onTheClock: { isMe: true }, lastPickAt: 1000, candidates: [{ id: "A" }, { id: "B" }] };
+  assert.equal(shouldAutoPick(board, { graceSeconds: 900, now: 1900 }).id, "A"); // exactly at grace
+  assert.equal(shouldAutoPick(board, { graceSeconds: 900, now: 1899 }), null); // still within grace
+});
+
+test("shouldAutoPick stays null off my clock or with nothing to pick", () => {
+  const opts = { graceSeconds: 900, now: 9999 };
+  assert.equal(shouldAutoPick({ onTheClock: { isMe: false }, lastPickAt: 1000, candidates: [{ id: "A" }] }, opts), null);
+  assert.equal(shouldAutoPick({ onTheClock: null, lastPickAt: 1000, candidates: [{ id: "A" }] }, opts), null);
+  assert.equal(shouldAutoPick({ onTheClock: { isMe: true }, lastPickAt: 1000, candidates: [] }, opts), null);
+  assert.equal(shouldAutoPick({ onTheClock: { isMe: true }, lastPickAt: null, candidates: [{ id: "A" }] }, opts), null);
 });
 
 test("evaluate honors an explicit gap override (peek horizon)", () => {

@@ -97,6 +97,15 @@ export function tradeSignal(candidates, opts = {}) {
   return null;
 }
 
+// Auto-pick fallback: once the pick has been ours for `graceSeconds` without us
+// acting, return the top available candidate to draft (else null). Pure; the
+// caller decides whether to actually submit (gated by AUTO_PICK + DRY_RUN).
+export function shouldAutoPick(board, { graceSeconds, now }) {
+  if (!board.onTheClock?.isMe || board.lastPickAt == null) return null;
+  if (now - board.lastPickAt < graceSeconds) return null;
+  return board.candidates?.[0] ?? null;
+}
+
 // Annotate each candidate with gap, p_pick, pSurvive and a take/wait/lean call.
 export function evaluate(candidates, state, posOf, opts = {}) {
   const { window, copies = 3, thresholds, gap: gapOpt, ...ppickOpts } = opts;

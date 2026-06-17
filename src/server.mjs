@@ -5,10 +5,11 @@
 import Fastify from "fastify";
 import { readFile } from "node:fs/promises";
 import { cfg } from "./config.mjs";
-import { login, exp, imp, arr } from "./mfl.mjs";
+import { login, exp, imp, arr, submitPick } from "./mfl.mjs";
 import { parseState } from "./state.mjs";
 import { buildBoard, buildHistory } from "./board.mjs";
 import { withAvailability } from "./candidates.mjs";
+import { shouldAutoPick } from "./decision.mjs";
 
 const here = (p) => new URL(p, import.meta.url);
 const rankedBoard = JSON.parse(await readFile(here("../data/rookie_board_final.json")));
@@ -44,6 +45,14 @@ app.get("/api/board", async () => {
   if (b.onTheClock && b.lastPickAt && clockSeconds) {
     b.clock = { deadline: b.lastPickAt + clockSeconds, limitSeconds: clockSeconds };
   }
+  // Auto-pick countdown info (UI shows it on my clock). armed = will actually fire.
+  if (b.onTheClock?.isMe && b.lastPickAt && b.candidates.length) {
+    b.autopick = {
+      deadline: b.lastPickAt + cfg.autoPickGraceSeconds,
+      player: { id: b.candidates[0].id, name: b.candidates[0].name },
+      armed: cfg.autoPick && !cfg.dryRun,
+    };
+  }
   return { ...b, myTeam, dryRun: cfg.dryRun };
 });
 
@@ -62,6 +71,28 @@ app.get("/api/rankings", async () => {
   const state = parseState(dr, cfg.franchiseId);
   const players = withAvailability(rankedBoard, state).sort((a, b) => a.rank - b.rank);
   return { players, picksMade: state.picksMade, totalPicks: state.totalPicks };
+});
+
+// Auto-pick fallback: MFL natively drafts the top available player from the owner's
+// My Draft List when the clock expires. We read/sync that list (verified write).
+app.get("/api/autopick", async () => {
+  const cur = await exp("myDraftList");
+  const list = arr(cur.myDraftList?.player)
+    .sort((a, b) => Number(a.order) - Number(b.order))
+    .map((p) => ({ id: p.id, name: nameById.get(p.id) ?? p.id, pos: posOf.get(p.id) ?? "?" }));
+  return { list };
+});
+
+app.post("/api/autopick/sync", async () => {
+  const dr = await exp("draftResults");
+  const state = parseState(dr, cfg.franchiseId);
+  const top = withAvailability(rankedBoard, state)
+    .filter((b) => b.remaining >= 1)
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 12);
+  // Reversible preference list (not a draft) — safe even under DRY_RUN; it IS the fallback.
+  await imp("myDraftList", { PLAYERS: top.map((b) => b.id).join(",") });
+  return { synced: top.map((b) => ({ id: b.id, name: b.name, pos: b.pos })) };
 });
 
 app.post("/api/pick", async (req, reply) => {
@@ -85,18 +116,43 @@ app.post("/api/pick", async (req, reply) => {
     return { dryRun: true, would: { id: playerId, name: cand.name, ...where } };
   }
   // Live: MFL itself rejects this unless ROUND/PICK match the current clock.
-  const result = await imp("live_draft", {
-    PLAYER: playerId,
-    ROUND: clock.round,
-    PICK: clock.pick,
-    FRANCHISE: cfg.franchiseId,
-  });
+  const result = await submitPick({ player: playerId, round: clock.round, pick: clock.pick });
   return { drafted: { id: playerId, name: cand.name, ...where }, result };
 });
 
 app.get("/", async (_req, reply) => {
   reply.type("text/html").send(await readFile(here("../public/index.html"), "utf8"));
 });
+
+// Server-side auto-pick watcher: polls independently so it works even when no
+// phone is open. Only runs when AUTO_PICK is on; DRY_RUN keeps it to logging.
+const autoHandled = new Set(); // slots already handled (idempotency)
+async function autoPickTick() {
+  let slot;
+  try {
+    const dr = await exp("draftResults");
+    const b = buildBoard(dr, rankedBoard, posOf, boardOpts(cfg.candidateCount));
+    const pick = shouldAutoPick(b, { graceSeconds: cfg.autoPickGraceSeconds, now: Math.floor(Date.now() / 1000) });
+    if (!pick) return;
+    slot = `${b.onTheClock.round}.${b.onTheClock.pick}`;
+    if (autoHandled.has(slot)) return;
+    if (cfg.dryRun) {
+      autoHandled.add(slot);
+      console.log(`[autopick] DRY_RUN — would draft ${pick.name} at ${slot}`);
+      return;
+    }
+    autoHandled.add(slot); // claim before the write (no double-submit)
+    const res = await submitPick({ player: pick.id, round: b.onTheClock.round, pick: b.onTheClock.pick });
+    console.log(`[autopick] DRAFTED ${pick.name} at ${slot}: ${res.response || "OK"}`);
+  } catch (e) {
+    if (slot) autoHandled.delete(slot); // retry next tick on failure
+    console.log("[autopick] error:", e.message);
+  }
+}
+if (cfg.autoPick) {
+  setInterval(autoPickTick, 30_000);
+  console.log(`auto-pick watcher ON (grace ${cfg.autoPickGraceSeconds}s, dryRun=${cfg.dryRun})`);
+}
 
 await app.listen({ port: cfg.port, host: "0.0.0.0" });
 console.log(`mfl-copilot web app -> http://localhost:${cfg.port}  (DRY_RUN=${cfg.dryRun})`);
