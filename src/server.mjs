@@ -8,7 +8,7 @@ import { cfg } from "./config.mjs";
 import { login, exp, imp, arr, submitPick } from "./mfl.mjs";
 import { parseState } from "./state.mjs";
 import { buildBoard, buildHistory } from "./board.mjs";
-import { withAvailability } from "./candidates.mjs";
+import { withAvailability, copiesTaken } from "./candidates.mjs";
 import { shouldAutoPick } from "./decision.mjs";
 
 const here = (p) => new URL(p, import.meta.url);
@@ -35,6 +35,23 @@ const clockSeconds = (() => {
   return h * 3600 + m * 60;
 })();
 
+// The owner's curated My Draft List drives auto-pick (roster-aware), not the raw
+// global board. Cache it; refresh when we're about to act.
+let draftListIds = [];
+async function refreshDraftList() {
+  try { draftListIds = arr((await exp("myDraftList")).myDraftList?.player).map((p) => p.id); }
+  catch { /* keep last known list */ }
+}
+await refreshDraftList();
+// First My-Draft-List player still available (copies remaining), or null.
+function firstFromList(state) {
+  const taken = copiesTaken(state);
+  for (const id of draftListIds) {
+    if (3 - (taken[id] ?? 0) >= 1) return { id, name: nameById.get(id) ?? id };
+  }
+  return null;
+}
+
 const app = Fastify({ logger: false });
 
 app.get("/api/board", async () => {
@@ -47,9 +64,10 @@ app.get("/api/board", async () => {
   }
   // Auto-pick countdown info (UI shows it on my clock). armed = will actually fire.
   if (b.onTheClock?.isMe && b.lastPickAt && b.candidates.length) {
+    const target = firstFromList(parseState(dr, cfg.franchiseId)) ?? b.candidates[0];
     b.autopick = {
       deadline: b.lastPickAt + cfg.autoPickGraceSeconds,
-      player: { id: b.candidates[0].id, name: b.candidates[0].name },
+      player: { id: target.id, name: target.name },
       armed: cfg.autoPick && !cfg.dryRun,
     };
   }
@@ -131,19 +149,22 @@ async function autoPickTick() {
   let slot;
   try {
     const dr = await exp("draftResults");
+    const state = parseState(dr, cfg.franchiseId);
     const b = buildBoard(dr, rankedBoard, posOf, boardOpts(cfg.candidateCount));
-    const pick = shouldAutoPick(b, { graceSeconds: cfg.autoPickGraceSeconds, now: Math.floor(Date.now() / 1000) });
-    if (!pick) return;
+    const due = shouldAutoPick(b, { graceSeconds: cfg.autoPickGraceSeconds, now: Math.floor(Date.now() / 1000) });
+    if (!due) return; // not my clock, or still within the 15-min grace
+    await refreshDraftList();
+    const target = firstFromList(state) ?? due; // prefer the curated list; fall back to board top
     slot = `${b.onTheClock.round}.${b.onTheClock.pick}`;
     if (autoHandled.has(slot)) return;
     if (cfg.dryRun) {
       autoHandled.add(slot);
-      console.log(`[autopick] DRY_RUN — would draft ${pick.name} at ${slot}`);
+      console.log(`[autopick] DRY_RUN — would draft ${target.name} at ${slot}`);
       return;
     }
     autoHandled.add(slot); // claim before the write (no double-submit)
-    const res = await submitPick({ player: pick.id, round: b.onTheClock.round, pick: b.onTheClock.pick });
-    console.log(`[autopick] DRAFTED ${pick.name} at ${slot}: ${res.response || "OK"}`);
+    const res = await submitPick({ player: target.id, round: b.onTheClock.round, pick: b.onTheClock.pick });
+    console.log(`[autopick] DRAFTED ${target.name} at ${slot}: ${res.response || "OK"}`);
   } catch (e) {
     if (slot) autoHandled.delete(slot); // retry next tick on failure
     console.log("[autopick] error:", e.message);
